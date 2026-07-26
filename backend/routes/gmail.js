@@ -38,7 +38,7 @@ function loadToken(oAuth2Client) {
 router.get('/status', authMiddleware, (req, res) => {
   const oAuth2Client = getOAuth2Client();
   const connected = loadToken(oAuth2Client);
-  
+
   db.query('SELECT telegram_chat_id, telegram_link_code FROM users WHERE id = ?', [req.user.id], (err, results) => {
     const userRow = (results && results[0]) || {};
     res.json({

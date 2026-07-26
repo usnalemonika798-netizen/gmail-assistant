@@ -6,9 +6,9 @@ const path = require('path');
 const TOKEN_PATH = path.join(__dirname, 'token.json');
 
 const oAuth2Client = new google.auth.OAuth2(
-  process.env.GMAIL_CLIENT_ID,
-  process.env.GMAIL_CLIENT_SECRET,
-  process.env.GMAIL_REDIRECT_URI
+  process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI || process.env.GMAIL_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
 );
 
 // Load saved token if exists
