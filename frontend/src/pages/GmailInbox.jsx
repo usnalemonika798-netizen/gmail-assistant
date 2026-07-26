@@ -15,8 +15,27 @@ export default function GmailInbox() {
   const token = localStorage.getItem('token');
 
   useEffect(() => {
-    fetchStatus();
-    fetchEmails();
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      localStorage.setItem('token', urlToken);
+      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${urlToken}` } })
+        .then(res => res.json())
+        .then(data => {
+          if (data.user) {
+            localStorage.setItem('user', JSON.stringify(data.user));
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          fetchStatus();
+          fetchEmails();
+        });
+    } else {
+      fetchStatus();
+      fetchEmails();
+    }
   }, []);
 
   const showToast = (msg) => {

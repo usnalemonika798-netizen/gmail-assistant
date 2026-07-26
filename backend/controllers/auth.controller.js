@@ -60,10 +60,40 @@ const AuthController = {
     }
   },
 
-  // GET /api/auth/google - Initiate Google OAuth 2.0 Flow
+  // GET /api/auth/me - Get Current Authenticated User Profile
+  getMe: async (req, res) => {
+    try {
+      const user = await UserModel.findById(req.user.id);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          telegramLinked: Boolean(user.telegram_chat_id),
+          googleConnected: Boolean(user.google_tokens)
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ message: 'Error fetching profile: ' + err.message });
+    }
+  },
+
+  // GET /api/auth/google - Initiate Google OAuth 2.0 Flow (Redirect)
   getGoogleAuthUrl: (req, res) => {
     const authUrl = GmailService.getGoogleAuthUrl();
     res.redirect(authUrl);
+  },
+
+  // GET /api/auth/google/login-url - Get Google OAuth 2.0 Auth URL as JSON
+  getGoogleLoginUrl: (req, res) => {
+    try {
+      const url = GmailService.getGoogleAuthUrl();
+      res.json({ success: true, url });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   },
 
   // GET /api/auth/google/callback - Exchange Code, Store Tokens & Issue JWT
