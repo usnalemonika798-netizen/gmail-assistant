@@ -41,7 +41,7 @@ function initDatabase() {
       console.log('🔄 Switching to local SQLite database (college.db)...');
       useSqliteFallback();
     } else {
-      console.log('✅ MySQL Connected successfully!');
+      console.log('✅ MySQL Connected successfully...!');
       activeDbMode = 'mysql';
       setupTablesMysql();
     }
