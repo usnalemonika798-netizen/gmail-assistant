@@ -1,5 +1,10 @@
 const mysql = require('mysql2');
-const sqlite3 = require('sqlite3').verbose();
+let sqlite3 = null;
+try {
+  sqlite3 = require('sqlite3').verbose();
+} catch (e) {
+  console.warn('⚠️ sqlite3 native module not loaded:', e.message);
+}
 const path = require('path');
 require('dotenv').config();
 
@@ -87,6 +92,10 @@ function setupTablesMysql() {
 
 function useSqliteFallback() {
   activeDbMode = 'sqlite';
+  if (!sqlite3) {
+    console.warn('⚠️ SQLite module is unavailable in this environment.');
+    return;
+  }
   const dbPath = path.join(__dirname, 'college.db');
   sqliteDb = new sqlite3.Database(dbPath, (err) => {
     if (err) {
