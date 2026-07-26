@@ -96,6 +96,10 @@ function setupTablesMysql() {
 
 function useSqliteFallback() {
   activeMode = 'sqlite';
+  if (!sqlite3) {
+    console.warn('⚠️ SQLite module is unavailable in this environment.');
+    return;
+  }
   const dbPath = path.join(__dirname, '../college.db');
   sqliteDb = new sqlite3.Database(dbPath, (err) => {
     if (err) {
@@ -179,6 +183,10 @@ function query(sql, params = [], callback) {
 }
 
 function runSqlite(sql, params, callback) {
+  if (!sqliteDb) {
+    console.warn('⚠️ No database handle available for query.');
+    return callback(null, []);
+  }
   const trimmed = sql.trim();
 
   // SHOW TABLES
