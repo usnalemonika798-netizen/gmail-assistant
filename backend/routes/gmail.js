@@ -15,9 +15,9 @@ const TOKEN_PATH = path.join(__dirname, '../../gmail-bot/token.json');
 
 function getOAuth2Client() {
   return new google.auth.OAuth2(
-    process.env.GMAIL_CLIENT_ID || 'dummy_client_id',
-    process.env.GMAIL_CLIENT_SECRET || 'dummy_client_secret',
-    process.env.GMAIL_REDIRECT_URI || 'http://localhost:5000/api/gmail/callback'
+    process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID || 'dummy_client_id',
+    process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET || 'dummy_client_secret',
+    process.env.GOOGLE_REDIRECT_URI || process.env.GMAIL_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
   );
 }
 
