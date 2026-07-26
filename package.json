@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "start": "node backend/server.js",
-    "bot": "node gmail-bot/bot.js"
+    "bot": "node gmail-bot/bot.js",
+    "build": "cd frontend && npm install && npm run build",
+    "build:frontend": "cd frontend && npm install && npm run build"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
