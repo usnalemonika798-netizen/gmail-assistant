@@ -8,6 +8,14 @@ const db = require('./db');
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token', { polling: true });
 
+bot.on('polling_error', (error) => {
+  if (error.code === 'ETELEGRAM' && error.message.includes('409 Conflict')) {
+    // Expected when running multiple bot instances simultaneously
+    return;
+  }
+  console.warn('⚠️ Telegram polling error:', error.message);
+});
+
 // Store pending emails awaiting approval { messageId: emailData }
 const pendingEmails = {};
 
