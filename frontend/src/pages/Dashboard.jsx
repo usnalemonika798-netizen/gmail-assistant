@@ -4,9 +4,10 @@ export default function Dashboard() {
   const [status, setStatus] = useState({ connected: false, telegramLinked: false })
 
   const token = localStorage.getItem('token')
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/gmail/status', {
+    fetch(`${API_BASE}/api/gmail/status`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -16,7 +17,7 @@ export default function Dashboard() {
 
   const downloadPDFReport = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/pdf/gmail-summary', {
+      const res = await fetch(`${API_BASE}/api/pdf/gmail-summary`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const blob = await res.blob()

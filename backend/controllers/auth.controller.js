@@ -97,7 +97,8 @@ const AuthController = {
       );
 
       // 5. Redirect to frontend dashboard with JWT token
-      res.redirect(`http://localhost:3000/gmail?token=${token}&auth=success`);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/gmail?token=${token}&auth=success`);
     } catch (err) {
       console.error('Google Callback Error:', err.message);
       res.status(500).send('Google OAuth Error: ' + err.message);

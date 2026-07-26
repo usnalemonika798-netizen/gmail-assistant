@@ -1,5 +1,17 @@
-const mysql = require('mysql2');
-const sqlite3 = require('sqlite3').verbose();
+let mysql = null;
+try {
+  mysql = require('mysql2');
+} catch (e) {
+  console.warn('⚠️ mysql2 module not loaded:', e.message);
+}
+
+let sqlite3 = null;
+try {
+  sqlite3 = require('sqlite3').verbose();
+} catch (e) {
+  console.warn('⚠️ sqlite3 module not loaded:', e.message);
+}
+
 const path = require('path');
 require('dotenv').config();
 
@@ -9,6 +21,12 @@ let sqliteDb = null;
 
 // Initialize Database Connection
 function initDatabase() {
+  if (!mysql) {
+    console.warn('⚠️ MySQL driver unavailable. Falling back to SQLite...');
+    useSqliteFallback();
+    return;
+  }
+
   const connectionConfig = {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
@@ -18,21 +36,26 @@ function initDatabase() {
     connectTimeout: 3000
   };
 
-  const conn = mysql.createConnection(connectionConfig);
+  try {
+    const conn = mysql.createConnection(connectionConfig);
 
-  conn.connect((err) => {
-    if (err) {
-      console.warn(`⚠️  MySQL connection warning: ${err.message}`);
-      console.log('🔄 Switching to zero-config local SQLite database (college.db)...');
-      useSqliteFallback();
-    } else {
-      console.log('✅ MySQL Database Connected Successfully!');
-      activeMode = 'mysql';
-      conn.end();
-      mysqlPool = mysql.createPool(connectionConfig);
-      setupTablesMysql();
-    }
-  });
+    conn.connect((err) => {
+      if (err) {
+        console.warn(`⚠️ MySQL connection warning: ${err.message}`);
+        console.log('🔄 Switching to zero-config local SQLite database (college.db)...');
+        useSqliteFallback();
+      } else {
+        console.log('✅ MySQL Database Connected Successfully!');
+        activeMode = 'mysql';
+        conn.end();
+        mysqlPool = mysql.createPool(connectionConfig);
+        setupTablesMysql();
+      }
+    });
+  } catch (err) {
+    console.warn(`⚠️ MySQL initialization error: ${err.message}`);
+    useSqliteFallback();
+  }
 }
 
 function setupTablesMysql() {

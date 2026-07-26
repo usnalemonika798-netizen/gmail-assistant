@@ -24,9 +24,11 @@ export default function GmailInbox() {
     setTimeout(() => setToastMessage(''), 4000);
   };
 
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
   const fetchStatus = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/gmail/status', {
+      const res = await fetch(`${API_BASE}/api/gmail/status`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -39,7 +41,7 @@ export default function GmailInbox() {
   const fetchEmails = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/gmail/unread', {
+      const res = await fetch(`${API_BASE}/api/gmail/unread`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -52,12 +54,12 @@ export default function GmailInbox() {
   };
 
   const handleConnectGmail = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google';
+    window.location.href = `${API_BASE}/api/auth/google`;
   };
 
   const handleGenerateTelegramCode = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/telegram/link-code', {
+      const res = await fetch(`${API_BASE}/api/telegram/link-code`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -74,7 +76,7 @@ export default function GmailInbox() {
   const handleDownloadPDF = async () => {
     try {
       showToast('📄 Generating PDF Report...');
-      const res = await fetch('http://localhost:5000/api/pdf/gmail-summary', {
+      const res = await fetch(`${API_BASE}/api/pdf/gmail-summary`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const blob = await res.blob();
@@ -98,7 +100,7 @@ export default function GmailInbox() {
     setReplyText('');
 
     try {
-      const res = await fetch('http://localhost:5000/api/gmail/generate-reply', {
+      const res = await fetch(`${API_BASE}/api/gmail/generate-reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,9 +125,8 @@ export default function GmailInbox() {
   const handleSendReply = async () => {
     if (!selectedEmail || !replyText) return;
     setSendingReply(true);
-
     try {
-      const res = await fetch('http://localhost:5000/api/gmail/send-reply', {
+      const res = await fetch(`${API_BASE}/api/gmail/send-reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
