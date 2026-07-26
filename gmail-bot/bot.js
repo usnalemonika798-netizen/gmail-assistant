@@ -36,7 +36,7 @@ bot.onText(/\/(start|link)(?:\s+(.+))?/, (msg, match) => {
   bot.sendMessage(chatId,
     `👋 *Welcome to Gmail AI Auto-Reply Bot!*\n\n` +
     `To link your account, generate a code on your Web Dashboard and send:\n` +
-    ``/link YOUR_CODE\`\n\n` +
+    '`/link YOUR_CODE`\n\n' +
     `Commands:\n` +
     `📧 /check - Check unread emails & generate AI replies\n` +
     `🔗 /auth - Connect your Gmail account\n` +
