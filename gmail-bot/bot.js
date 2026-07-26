@@ -3,7 +3,8 @@ const { loadToken, getAuthUrl, saveToken, getUnreadEmails, markAsRead, sendReply
 const { generateReply } = require('./ai');
 require('dotenv').config();
 
-const db = require('../backend/db');
+// Use local DB module — avoids cross-package node_modules resolution issues on Render
+const db = require('./db');
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token', { polling: true });
 
