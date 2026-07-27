@@ -7,7 +7,13 @@ import Navbar from './components/Navbar'
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
-  return token ? children : <Navigate to="/login" />
+  // Also allow access if token is in URL (Google OAuth callback)
+  const urlParams = new URLSearchParams(window.location.search)
+  const urlToken = urlParams.get('token')
+  if (urlToken) {
+    localStorage.setItem('token', urlToken)
+  }
+  return (token || urlToken) ? children : <Navigate to="/login" />
 }
 
 function App() {
