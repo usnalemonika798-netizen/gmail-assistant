@@ -6,7 +6,8 @@ module.exports = (req, res, next) => {
   if (!token) return res.status(401).json({ message: 'No token provided' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET || 'mysecretkey123';
+    const decoded = jwt.verify(token, secret);
     req.user = decoded;
     next();
   } catch (err) {
