@@ -12,7 +12,7 @@ export default function GmailInbox() {
   const [toastMessage, setToastMessage] = useState('');
   const [linkCode, setLinkCode] = useState('');
 
-  const token = localStorage.getItem('token');
+  const getToken = () => localStorage.getItem('token') || new URLSearchParams(window.location.search).get('token');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -48,7 +48,7 @@ export default function GmailInbox() {
   const fetchStatus = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/gmail/status`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       });
       const data = await res.json();
       setStatus(data);
@@ -61,7 +61,7 @@ export default function GmailInbox() {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/gmail/unread`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       });
       const data = await res.json();
       setEmails(Array.isArray(data) ? data : []);
@@ -80,7 +80,7 @@ export default function GmailInbox() {
     try {
       const res = await fetch(`${API_BASE}/api/telegram/link-code`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       });
       const data = await res.json();
       if (data.code) {
@@ -96,7 +96,7 @@ export default function GmailInbox() {
     try {
       showToast('📄 Generating PDF Report...');
       const res = await fetch(`${API_BASE}/api/pdf/gmail-summary`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       });
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -123,7 +123,7 @@ export default function GmailInbox() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${getToken()}`
         },
         body: JSON.stringify({
           from: email.from,
@@ -149,7 +149,7 @@ export default function GmailInbox() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${getToken()}`
         },
         body: JSON.stringify({
           to: selectedEmail.from,
