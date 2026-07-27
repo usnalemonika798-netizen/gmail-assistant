@@ -64,9 +64,15 @@ export default function GmailInbox() {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
       const data = await res.json();
+      if (!res.ok) {
+        setEmails([]);
+        showToast(data.message || 'Error fetching emails');
+        if (data.reconnect) setStatus((s) => ({ ...s, connected: false }));
+        return;
+      }
       setEmails(Array.isArray(data) ? data : []);
     } catch (err) {
-      showToast('❌ Error fetching emails');
+      showToast('Error fetching emails — is the backend up?');
     } finally {
       setLoading(false);
     }

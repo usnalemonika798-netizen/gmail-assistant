@@ -1,8 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 const UserModel = require('../models/user.model');
 const GmailService = require('../services/gmail.service');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const AuthController = {
   // Register User
@@ -116,8 +117,27 @@ const AuthController = {
         });
       }
 
-      // 3. Store access_token and refresh_token in Database
-      await UserModel.saveGoogleTokens(user.id, tokens);
+      // 3. Store tokens — keep existing refresh_token if Google omitted it
+      let tokensToSave = tokens;
+      if (!tokens.refresh_token && user.google_tokens) {
+        try {
+          const prev =
+            typeof user.google_tokens === 'string'
+              ? JSON.parse(user.google_tokens)
+              : user.google_tokens;
+          if (prev.refresh_token) {
+            tokensToSave = { ...tokens, refresh_token: prev.refresh_token };
+          }
+        } catch (_) {
+          /* ignore parse errors */
+        }
+      }
+      if (!tokensToSave.refresh_token) {
+        console.warn(
+          '⚠️ No refresh_token from Google. Revoke app access at https://myaccount.google.com/permissions and reconnect.'
+        );
+      }
+      await UserModel.saveGoogleTokens(user.id, tokensToSave);
 
       // 4. Issue JWT Session Token
       const token = jwt.sign(
@@ -126,12 +146,15 @@ const AuthController = {
         { expiresIn: '7d' }
       );
 
-      // 5. Redirect to frontend dashboard with JWT token
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      // 5. Redirect to frontend — MUST be your Vercel URL in production
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
       res.redirect(`${frontendUrl}/gmail?token=${token}&auth=success`);
     } catch (err) {
       console.error('Google Callback Error:', err.message);
-      res.status(500).send('Google OAuth Error: ' + err.message);
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+      res.redirect(
+        `${frontendUrl}/login?auth=error&message=${encodeURIComponent(err.message || 'OAuth failed')}`
+      );
     }
   }
 };

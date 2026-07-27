@@ -10,8 +10,10 @@ const router = express.Router();
 router.get('/gmail-summary', authMiddleware, async (req, res) => {
   try {
     const user = await UserModel.findById(req.user.id);
-    const tokens = user ? user.google_tokens : null;
-    const emails = await GmailService.fetchInbox(tokens, 15);
+    if (!user || !user.google_tokens) {
+      return res.status(401).json({ message: 'Google not connected. Sign in with Google first.' });
+    }
+    const emails = await GmailService.fetchInbox(req.user.id, 15);
 
     const doc = new PDFDocument({ margin: 40 });
 

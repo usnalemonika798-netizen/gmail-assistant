@@ -1,17 +1,35 @@
 const { google } = require('googleapis');
+const path = require('path');
 const UserModel = require('../models/user.model');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+function requireGoogleEnv() {
+  const clientId = process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET;
+  const redirectUri =
+    process.env.GOOGLE_REDIRECT_URI ||
+    process.env.GMAIL_REDIRECT_URI ||
+    'http://localhost:5000/api/auth/google/callback';
+
+  if (!clientId || !clientSecret || clientId === 'dummy_client_id') {
+    throw new Error(
+      'Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET. Set them on the backend host (Render).'
+    );
+  }
+  return { clientId, clientSecret, redirectUri };
+}
 
 function getOAuth2Client() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID || 'dummy_client_id',
-    process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET || 'dummy_client_secret',
-    process.env.GOOGLE_REDIRECT_URI || process.env.GMAIL_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
-  );
+  const { clientId, clientSecret, redirectUri } = requireGoogleEnv();
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+}
+
+function parseTokens(tokens) {
+  if (!tokens) return null;
+  return typeof tokens === 'string' ? JSON.parse(tokens) : tokens;
 }
 
 const GmailService = {
-  // Initialize Google OAuth2 client and generate Auth URL
   getGoogleAuthUrl: () => {
     const oAuth2Client = getOAuth2Client();
     const scopes = [
@@ -31,13 +49,13 @@ const GmailService = {
     });
   },
 
-  // Exchange code for tokens & fetch user profile
+  getRedirectUri: () => requireGoogleEnv().redirectUri,
+
   exchangeCodeAndFetchProfile: async (code) => {
     const oAuth2Client = getOAuth2Client();
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
 
-    // Fetch user profile from Google OAuth2 API
     const oauth2 = google.oauth2({ version: 'v2', auth: oAuth2Client });
     const profileRes = await oauth2.userinfo.get();
     const profile = profileRes.data;
@@ -53,98 +71,74 @@ const GmailService = {
     };
   },
 
-  // Token Management & Automatic Refresh
+  // Token Management & Automatic Refresh (persists new access_token to DB)
   getValidGmailClient: async (userId) => {
     const user = await UserModel.findById(userId);
     if (!user || !user.google_tokens) {
-      throw new Error('User has not linked Google / Gmail account yet');
+      throw new Error('Google account not connected. Sign in with Google again.');
     }
 
-    const tokens = typeof user.google_tokens === 'string' ? JSON.parse(user.google_tokens) : user.google_tokens;
+    const tokens = parseTokens(user.google_tokens);
+    if (!tokens.refresh_token && !tokens.access_token) {
+      throw new Error('Google tokens missing. Sign in with Google again.');
+    }
+
     const oAuth2Client = getOAuth2Client();
     oAuth2Client.setCredentials(tokens);
 
-    // Automatic Token Refresh Listener
     oAuth2Client.on('tokens', async (newTokens) => {
-      console.log('🔄 Access Token refreshed automatically for user ID:', userId);
+      console.log('🔄 Access token refreshed for user:', userId);
+      // Google omits refresh_token on refresh — keep the old one
       const updatedTokens = { ...tokens, ...newTokens };
-      await UserModel.saveGoogleTokens(userId, updatedTokens);
+      if (!updatedTokens.refresh_token && tokens.refresh_token) {
+        updatedTokens.refresh_token = tokens.refresh_token;
+      }
+      try {
+        await UserModel.saveGoogleTokens(userId, updatedTokens);
+      } catch (e) {
+        console.error('Failed to persist refreshed tokens:', e.message);
+      }
     });
 
     return google.gmail({ version: 'v1', auth: oAuth2Client });
   },
 
-  // Fetch recent unread inbox emails
-  fetchInbox: async (tokens, maxResults = 5) => {
-    let gmail;
-    try {
-      const client = getOAuth2Client();
-      if (tokens) {
-        const parsed = typeof tokens === 'string' ? JSON.parse(tokens) : tokens;
-        client.setCredentials(parsed);
-      }
-      gmail = google.gmail({ version: 'v1', auth: client });
+  fetchInbox: async (userId, maxResults = 5) => {
+    const gmail = await GmailService.getValidGmailClient(userId);
 
-      const listRes = await gmail.users.messages.list({
-        userId: 'me',
-        q: 'is:unread',
-        maxResults
+    const listRes = await gmail.users.messages.list({
+      userId: 'me',
+      q: 'is:unread',
+      maxResults
+    });
+
+    const messages = listRes.data.messages || [];
+    const emails = [];
+
+    for (const msg of messages) {
+      const detail = await gmail.users.messages.get({ userId: 'me', id: msg.id });
+      const headers = detail.data.payload.headers || [];
+
+      const from = headers.find((h) => h.name === 'From')?.value || 'Unknown Sender';
+      const subject = headers.find((h) => h.name === 'Subject')?.value || '(No Subject)';
+      const date = headers.find((h) => h.name === 'Date')?.value || new Date().toISOString();
+      const snippet = detail.data.snippet || '';
+
+      emails.push({
+        id: msg.id,
+        threadId: detail.data.threadId,
+        from,
+        subject,
+        snippet,
+        date
       });
-
-      const messages = listRes.data.messages || [];
-      const emails = [];
-
-      for (const msg of messages) {
-        const detail = await gmail.users.messages.get({ userId: 'me', id: msg.id });
-        const headers = detail.data.payload.headers || [];
-
-        const from = headers.find(h => h.name === 'From')?.value || 'Unknown Sender';
-        const subject = headers.find(h => h.name === 'Subject')?.value || '(No Subject)';
-        const date = headers.find(h => h.name === 'Date')?.value || new Date().toISOString();
-        const snippet = detail.data.snippet || '';
-
-        emails.push({
-          id: msg.id,
-          threadId: detail.data.threadId,
-          from,
-          subject,
-          snippet,
-          date
-        });
-      }
-
-      return emails;
-    } catch (err) {
-      // Demonstration mode fallback
-      return [
-        {
-          id: 'demo_email_1',
-          threadId: 't1',
-          from: 'Professor Vance <vance@university.edu>',
-          subject: 'Project Submission Deadline Extension',
-          snippet: 'Hello students, please note that the final project report submission deadline has been extended to Friday 5 PM.',
-          date: new Date().toLocaleDateString()
-        },
-        {
-          id: 'demo_email_2',
-          threadId: 't2',
-          from: 'HR Department <careers@techcorp.com>',
-          subject: 'Interview Schedule Invitation',
-          snippet: 'Dear Applicant, we reviewed your profile for the AI Developer role and would like to invite you for a technical interview.',
-          date: new Date().toLocaleDateString()
-        }
-      ];
     }
+
+    return emails;
   },
 
-  // Reply to an email thread
-  sendReply: async (tokens, { to, subject, threadId, replyText }) => {
-    const client = getOAuth2Client();
-    if (tokens) {
-      const parsed = typeof tokens === 'string' ? JSON.parse(tokens) : tokens;
-      client.setCredentials(parsed);
-    }
-    const gmail = google.gmail({ version: 'v1', auth: client });
+  sendReply: async (userId, { to, subject, threadId, replyText }) => {
+    const gmail = await GmailService.getValidGmailClient(userId);
 
     const emailLines = [
       `To: ${to}`,
@@ -162,15 +156,11 @@ const GmailService = {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
 
-    try {
-      const res = await gmail.users.messages.send({
-        userId: 'me',
-        requestBody: { raw, threadId }
-      });
-      return { success: true, messageId: res.data.id };
-    } catch (err) {
-      return { success: true, message: `✅ Demo Mode: Reply queued for ${to}!` };
-    }
+    const res = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw, threadId }
+    });
+    return { success: true, messageId: res.data.id };
   }
 };
 

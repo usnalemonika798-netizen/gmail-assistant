@@ -75,7 +75,10 @@ function setupCommands() {
     bot.sendMessage(chatId, '🔍 Fetching recent unread Gmail emails...');
 
     try {
-      const emails = await GmailService.fetchInbox(user.google_tokens, 5);
+      if (!user.google_tokens) {
+        return bot.sendMessage(chatId, '⚠️ Google not connected. Open the web app and Sign in with Google first.');
+      }
+      const emails = await GmailService.fetchInbox(user.id, 5);
 
       if (!emails || emails.length === 0) {
         return bot.sendMessage(chatId, '🎉 No unread emails in your inbox!');
@@ -120,7 +123,7 @@ function setupCommands() {
     bot.sendMessage(chatId, `⏳ Sending reply to email \`${emailId}\`...`, { parse_mode: 'Markdown' });
 
     try {
-      const result = await GmailService.sendReply(user.google_tokens, {
+      const result = await GmailService.sendReply(user.id, {
         to: emailId,
         subject: 'Re: Email',
         threadId: emailId,
@@ -159,8 +162,10 @@ function setupCallbacks() {
       bot.answerCallbackQuery(query.id, { text: '⚡ Generating AI reply...' });
 
       const user = await UserModel.findByTelegramChatId(chatId);
-      const tokens = user ? user.google_tokens : null;
-      const emails = await GmailService.fetchInbox(tokens, 10);
+      if (!user || !user.google_tokens) {
+        return bot.sendMessage(chatId, '⚠️ Google not connected. Sign in with Google on the web app first.');
+      }
+      const emails = await GmailService.fetchInbox(user.id, 10);
       const email = emails.find(e => e.id === emailId) || { from: 'Sender', subject: 'Subject', snippet: 'Content' };
 
       const aiReply = await AIService.generateEmailReply(email.from, email.subject, email.snippet);
@@ -191,10 +196,12 @@ function setupCallbacks() {
       bot.answerCallbackQuery(query.id, { text: 'Sending email...' });
 
       const user = await UserModel.findByTelegramChatId(chatId);
-      const tokens = user ? user.google_tokens : null;
+      if (!user || !user.google_tokens) {
+        return bot.sendMessage(chatId, '⚠️ Google not connected.');
+      }
 
       try {
-        await GmailService.sendReply(tokens, {
+        await GmailService.sendReply(user.id, {
           to: draft ? draft.email.from : 'recipient',
           subject: draft ? draft.email.subject : 'Subject',
           threadId: emailId,

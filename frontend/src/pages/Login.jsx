@@ -9,8 +9,13 @@ export default function Login() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Process Google OAuth redirect callback URL params (e.g. ?token=XYZ&auth=success)
     const params = new URLSearchParams(window.location.search)
+    const authErr = params.get('auth')
+    if (authErr === 'error') {
+      setError(params.get('message') || 'Google login failed. Check Render FRONTEND_URL + Google redirect URI.')
+      window.history.replaceState({}, document.title, '/login')
+      return
+    }
     const urlToken = params.get('token')
     if (urlToken) {
       localStorage.setItem('token', urlToken)
