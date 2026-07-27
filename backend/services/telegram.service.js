@@ -167,19 +167,26 @@ function setupHumanChat() {
 function setupCommands() {
   if (!bot) return;
 
-  bot.onText(/\/(start|connect|link)(?:\s+(.+))?/, async (msg, match) => {
+  bot.onText(/\/(start|connect|link)(?:\s+(.+))?$/, async (msg, match) => {
     const chatId = msg.chat.id;
     const linkCode = match[2] ? match[2].trim().toUpperCase() : null;
 
     if (linkCode) {
       try {
         const user = await UserModel.linkTelegramChat(linkCode, chatId);
+        if (user.alreadyLinked) {
+          // Silent on duplicate — first message already welcomed them
+          return;
+        }
         return bot.sendMessage(
           chatId,
           `*Linked!* Hey ${user.name} 👋\n\nChat like a human — e.g.\n"any important mail?"\n"what's urgent?"\n\nI'll also *push* you when important mail arrives.\n\n/brief /inbox /triage`,
           { parse_mode: 'Markdown' }
         );
       } catch (err) {
+        // If somehow already linked, don't scare the user
+        const existing = await UserModel.findByTelegramChatId(chatId);
+        if (existing) return;
         return bot.sendMessage(chatId, `Link Error: ${err.message}`);
       }
     }

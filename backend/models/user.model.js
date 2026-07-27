@@ -105,17 +105,22 @@ const UserModel = {
       try {
         purgeExpiredLinks();
         const normalized = String(code || '').trim().toUpperCase();
+        const chat = String(chatId);
+
         if (!normalized) {
           return reject(new Error('Invalid or expired Link Code'));
         }
 
-        // 1) Fast path: in-memory (same backend process that generated the code)
-        const pending = pendingTelegramLinks.get(normalized);
-        if (pending) {
-          pendingTelegramLinks.delete(normalized);
+        // Already linked to this chat → treat as success (avoids double-/connect error)
+        const already = await UserModel.findByTelegramChatId(chat);
+        if (already) {
+          return resolve({ ...already, alreadyLinked: true });
+        }
+
+        const finishLink = (userId, name, email) => {
           db.query(
             'UPDATE users SET telegram_chat_id = ?, telegram_link_code = NULL WHERE id = ?',
-            [String(chatId), pending.userId],
+            [chat, userId],
             (err, result) => {
               if (err) return reject(err);
               if (result && result.affectedRows === 0) {
@@ -125,34 +130,40 @@ const UserModel = {
                   )
                 );
               }
-              resolve({ id: pending.userId, name: pending.name, email: pending.email });
+              resolve({ id: userId, name, email });
             }
           );
-          return;
+        };
+
+        // 1) In-memory (same process that generated the code)
+        const pending = pendingTelegramLinks.get(normalized);
+        if (pending) {
+          pendingTelegramLinks.delete(normalized);
+          return finishLink(pending.userId, pending.name, pending.email);
         }
 
-        // 2) DB path
+        // 2) DB
         db.query(
           'SELECT * FROM users WHERE UPPER(telegram_link_code) = ?',
           [normalized],
           (err, results) => {
-            if (err || !results || results.length === 0) {
-              return reject(
-                new Error(
-                  'Invalid or expired Link Code. On the website: Sign in with Google → Link Telegram → use the NEW code immediately'
-                )
-              );
+            if (err) return reject(err);
+            if (!results || results.length === 0) {
+              // Race: first handler already linked & cleared the code
+              UserModel.findByTelegramChatId(chat)
+                .then((u) => {
+                  if (u) return resolve({ ...u, alreadyLinked: true });
+                  reject(
+                    new Error(
+                      'Invalid or expired Link Code. On the website: Sign in with Google → Link Telegram → use the NEW code immediately'
+                    )
+                  );
+                })
+                .catch(reject);
+              return;
             }
-
             const user = results[0];
-            db.query(
-              'UPDATE users SET telegram_chat_id = ?, telegram_link_code = NULL WHERE id = ?',
-              [String(chatId), user.id],
-              (err2) => {
-                if (err2) return reject(err2);
-                resolve(user);
-              }
-            );
+            finishLink(user.id, user.name, user.email);
           }
         );
       } catch (e) {
