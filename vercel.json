@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://gmail-assistant-nxba.onrender.com/api/:path*"
+      "destination": "https://gmail-assistant-1.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
