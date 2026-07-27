@@ -13,6 +13,8 @@ router.get('/status', GmailController.getStatus);
 // Fetch recent unread inbox emails (both /unread and /inbox supported)
 router.get('/unread', GmailController.getInbox);
 router.get('/inbox', GmailController.getInbox);
+router.get('/briefing', GmailController.getBriefing);
+router.post('/triage', GmailController.autoTriage);
 
 // Generate AI Reply using Gemini
 router.post('/generate-reply', GmailController.generateReply);

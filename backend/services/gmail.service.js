@@ -161,6 +161,67 @@ const GmailService = {
       requestBody: { raw, threadId }
     });
     return { success: true, messageId: res.data.id };
+  },
+
+  // Ensure custom labels exist; return name → id map
+  ensureTriageLabels: async (userId) => {
+    const gmail = await GmailService.getValidGmailClient(userId);
+    const names = ['AI/Urgent', 'AI/Job', 'AI/Meeting', 'AI/College', 'AI/Noise', 'AI/Other'];
+    const list = await gmail.users.labels.list({ userId: 'me' });
+    const existing = list.data.labels || [];
+    const byName = {};
+    for (const lab of existing) byName[lab.name] = lab.id;
+
+    for (const name of names) {
+      if (byName[name]) continue;
+      const created = await gmail.users.labels.create({
+        userId: 'me',
+        requestBody: {
+          name,
+          labelListVisibility: 'labelShow',
+          messageListVisibility: 'show'
+        }
+      });
+      byName[name] = created.data.id;
+    }
+    return byName;
+  },
+
+  applyLabelToMessage: async (userId, messageId, labelId) => {
+    const gmail = await GmailService.getValidGmailClient(userId);
+    await gmail.users.messages.modify({
+      userId: 'me',
+      id: messageId,
+      requestBody: { addLabelIds: [labelId] }
+    });
+  },
+
+  // Classify unread mail + apply Gmail labels
+  autoTriageInbox: async (userId, maxResults = 10) => {
+    const AIService = require('./ai.service');
+    const emails = await GmailService.fetchInbox(userId, maxResults);
+    const labelMap = await GmailService.ensureTriageLabels(userId);
+    const results = [];
+
+    for (const email of emails) {
+      const triage = AIService.classifyEmail(email.subject, email.snippet, email.from);
+      const labelId = labelMap[triage.gmailLabel];
+      if (labelId) {
+        try {
+          await GmailService.applyLabelToMessage(userId, email.id, labelId);
+        } catch (e) {
+          console.warn('Label apply failed:', email.id, e.message);
+        }
+      }
+      results.push({
+        ...email,
+        triage,
+        labeled: Boolean(labelId),
+        meetingHint: AIService.looksLikeMeeting(email.subject, email.snippet)
+      });
+    }
+
+    return results;
   }
 };
 

@@ -1,37 +1,172 @@
+const https = require('https');
+const http = require('http');
 const TelegramBot = require('node-telegram-bot-api').TelegramBot || require('node-telegram-bot-api');
 const UserModel = require('../models/user.model');
 const GmailService = require('./gmail.service');
 const AIService = require('./ai.service');
+const CalendarService = require('./calendar.service');
 require('dotenv').config();
 
 let bot = null;
-const pendingDrafts = {}; // { chatId_emailId: { email, replyText } }
+const pendingDrafts = {};
+const pendingVoice = {};
+// ponytail: in-memory dedupe; resets on redeploy (fine for notifications)
+const notifiedMailIds = new Set();
+let watchTimer = null;
+
+const WATCH_MS = Number(process.env.MAIL_WATCH_INTERVAL_MS) || 90 * 1000; // ~90s
+
+function downloadUrl(url) {
+  return new Promise((resolve, reject) => {
+    const lib = url.startsWith('https') ? https : http;
+    lib
+      .get(url, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return downloadUrl(res.headers.location).then(resolve).catch(reject);
+        }
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+        res.on('error', reject);
+      })
+      .on('error', reject);
+  });
+}
 
 function initTelegramBot() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token || token === 'your_telegram_bot_token') {
-    console.log('⚠️  TELEGRAM_BOT_TOKEN not configured. Add your token in .env to enable Telegram Bot.');
+    console.log('TELEGRAM_BOT_TOKEN not configured — Telegram bot disabled.');
     return;
   }
 
   try {
     bot = new TelegramBot(token, { polling: true });
-    bot.on('polling_error', (error) => {
-      // Suppress temporary internet connection drops
-    });
-    console.log('🤖 Telegram Bot Service initialized & listening!');
-
+    bot.on('polling_error', () => {});
+    console.log('Telegram Bot Service initialized & listening!');
     setupCommands();
     setupCallbacks();
+    setupVoice();
+    setupHumanChat();
+    startImportantMailWatcher();
   } catch (err) {
-    console.error('❌ Telegram Bot Error:', err.message);
+    console.error('Telegram Bot Error:', err.message);
   }
+}
+
+async function loadTaggedInbox(userId, max = 10) {
+  const emails = await GmailService.fetchInbox(userId, max);
+  return emails.map((e) => ({
+    ...e,
+    triage: AIService.classifyEmail(e.subject, e.snippet, e.from),
+    meetingHint: AIService.looksLikeMeeting(e.subject, e.snippet)
+  }));
+}
+
+function isImportant(email) {
+  const c = email.triage?.category;
+  return c === 'Urgent' || c === 'Job' || c === 'Meeting' || c === 'College';
+}
+
+function startImportantMailWatcher() {
+  if (watchTimer) clearInterval(watchTimer);
+  console.log(`Important-mail Telegram watcher every ${WATCH_MS / 1000}s`);
+  // First run after short delay so DB is ready
+  setTimeout(() => {
+    checkImportantMailForAll().catch(() => {});
+  }, 15000);
+  watchTimer = setInterval(() => {
+    checkImportantMailForAll().catch((e) => console.warn('Mail watch:', e.message));
+  }, WATCH_MS);
+}
+
+async function checkImportantMailForAll() {
+  if (!bot) return;
+  let users = [];
+  try {
+    users = await UserModel.findTelegramLinkedWithGoogle();
+  } catch (e) {
+    return;
+  }
+
+  for (const user of users) {
+    try {
+      const emails = await loadTaggedInbox(user.id, 8);
+      const important = emails.filter(isImportant);
+      for (const email of important) {
+        const key = `${user.id}:${email.id}`;
+        if (notifiedMailIds.has(key)) continue;
+        notifiedMailIds.add(key);
+
+        const text =
+          `*Important mail*\n` +
+          `[${email.triage.category}] ${email.subject}\n` +
+          `From: ${email.from}\n` +
+          `${(email.snippet || '').substring(0, 180)}\n\n` +
+          `Reply here casually, or /inbox · Voice Reply`;
+
+        await bot.sendMessage(user.telegram_chat_id, text, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: 'AI Reply', callback_data: `ai_reply_${email.id}` },
+                { text: 'Voice Reply', callback_data: `voice_ready_${email.id}` }
+              ]
+            ]
+          }
+        });
+      }
+      // Cap memory
+      if (notifiedMailIds.size > 2000) {
+        const keep = [...notifiedMailIds].slice(-800);
+        notifiedMailIds.clear();
+        keep.forEach((k) => notifiedMailIds.add(k));
+      }
+    } catch (err) {
+      console.warn(`Watch user ${user.id}:`, err.message);
+    }
+  }
+}
+
+function setupHumanChat() {
+  if (!bot) return;
+
+  bot.on('message', async (msg) => {
+    if (!msg.text || msg.voice) return;
+    const text = msg.text.trim();
+    if (text.startsWith('/')) return; // commands handled elsewhere
+
+    const chatId = msg.chat.id;
+    const user = await UserModel.findByTelegramChatId(chatId);
+    if (!user) {
+      return bot.sendMessage(
+        chatId,
+        "Hey! Link your account first — generate a code on the website, then send /connect YOURCODE"
+      );
+    }
+    if (!user.google_tokens) {
+      return bot.sendMessage(chatId, 'Sign in with Google on the website first, then chat with me here.');
+    }
+
+    // Typing indicator
+    try {
+      await bot.sendChatAction(chatId, 'typing');
+    } catch (_) {}
+
+    try {
+      const emails = await loadTaggedInbox(user.id, 10);
+      const reply = await AIService.chatAboutMail(text, emails);
+      await bot.sendMessage(chatId, reply);
+    } catch (err) {
+      bot.sendMessage(chatId, `Couldn't check mail right now: ${err.message}`);
+    }
+  });
 }
 
 function setupCommands() {
   if (!bot) return;
 
-  // /start or /connect <code|link_code>
   bot.onText(/\/(start|connect|link)(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const linkCode = match[2] ? match[2].trim().toUpperCase() : null;
@@ -41,112 +176,170 @@ function setupCommands() {
         const user = await UserModel.linkTelegramChat(linkCode, chatId);
         return bot.sendMessage(
           chatId,
-          `✅ *Account Linked Successfully!*\n\nWelcome *${user.name}* (${user.email}).\nNow you can use:\n📥 /inbox - View recent emails\n💬 /reply <id> <message> - Reply to emails directly from Telegram!`,
+          `*Linked!* Hey ${user.name} 👋\n\nChat like a human — e.g.\n"any important mail?"\n"what's urgent?"\n\nI'll also *push* you when important mail arrives.\n\n/brief /inbox /triage`,
           { parse_mode: 'Markdown' }
         );
       } catch (err) {
-        return bot.sendMessage(chatId, `❌ Link Error: ${err.message}. Generate a new code on your Web Dashboard.`);
+        return bot.sendMessage(chatId, `Link Error: ${err.message}`);
       }
     }
 
     bot.sendMessage(
       chatId,
-      `👋 *Welcome to Gmail AI Telegram Bot!*\n\n` +
-      `To link your Gmail AI Account:\n` +
-      `1. Log in on Web App and click *Generate Link Code*\n` +
-      `2. Send command: \`/connect YOUR_CODE\`\n\n` +
-      `*Commands:*\n` +
-      `📥 /inbox - View unread emails & generate AI replies\n` +
-      `💬 /reply <id> <msg> - Send reply to an email\n` +
-      `❓ /help - Show this guide`,
+      `*Gmail AI Bot*\n\nTalk normally:\n• "hey any important mail?"\n• "show urgent emails"\n\nOr commands: /connect /brief /inbox /triage\nI'll notify you when important mail lands.`,
       { parse_mode: 'Markdown' }
     );
   });
 
-  // /inbox
+  bot.onText(/\/brief/, async (msg) => {
+    const chatId = msg.chat.id;
+    const user = await UserModel.findByTelegramChatId(chatId);
+    if (!user) return bot.sendMessage(chatId, 'Link first: `/connect CODE`', { parse_mode: 'Markdown' });
+    if (!user.google_tokens) return bot.sendMessage(chatId, 'Sign in with Google on the website first.');
+
+    await bot.sendMessage(chatId, 'Building your morning briefing…');
+    try {
+      const emails = await loadTaggedInbox(user.id, 8);
+      const triageCounts = {};
+      for (const e of emails) triageCounts[e.triage.category] = (triageCounts[e.triage.category] || 0) + 1;
+
+      let events = [];
+      try {
+        events = await CalendarService.listUpcomingEvents(user.id, 4);
+      } catch (_) {}
+
+      const narrative = await AIService.buildBriefingNarrative({ emails, events, triageCounts });
+      const top = emails
+        .slice(0, 4)
+        .map((e) => `• [${e.triage.category}] ${e.subject}`)
+        .join('\n');
+
+      await bot.sendMessage(
+        chatId,
+        `*Morning Briefing*\nUnread: ${emails.length}\n${Object.entries(triageCounts)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(' · ')}\n\n${narrative}\n\n*Top mail*\n${top || 'None'}`,
+        { parse_mode: 'Markdown' }
+      );
+    } catch (err) {
+      bot.sendMessage(chatId, `Briefing failed: ${err.message}`);
+    }
+  });
+
+  bot.onText(/\/triage/, async (msg) => {
+    const chatId = msg.chat.id;
+    const user = await UserModel.findByTelegramChatId(chatId);
+    if (!user?.google_tokens) return bot.sendMessage(chatId, 'Link account + Google first.');
+    await bot.sendMessage(chatId, 'Auto-triaging unread mail into Gmail labels…');
+    try {
+      const results = await GmailService.autoTriageInbox(user.id, 10);
+      const counts = {};
+      for (const r of results) counts[r.triage.category] = (counts[r.triage.category] || 0) + 1;
+      bot.sendMessage(
+        chatId,
+        `Labeled *${results.length}* messages.\n${Object.entries(counts)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join('\n')}`,
+        { parse_mode: 'Markdown' }
+      );
+    } catch (err) {
+      bot.sendMessage(chatId, `Triage failed: ${err.message}`);
+    }
+  });
+
   bot.onText(/\/inbox/, async (msg) => {
     const chatId = msg.chat.id;
     const user = await UserModel.findByTelegramChatId(chatId);
-
     if (!user) {
-      return bot.sendMessage(chatId, '⚠️ Account not linked yet! Send `/connect YOUR_CODE` to link your account.', { parse_mode: 'Markdown' });
+      return bot.sendMessage(chatId, 'Link first: `/connect YOUR_CODE`', { parse_mode: 'Markdown' });
     }
+    if (!user.google_tokens) return bot.sendMessage(chatId, 'Google not connected on the website.');
 
-    bot.sendMessage(chatId, '🔍 Fetching recent unread Gmail emails...');
-
+    bot.sendMessage(chatId, 'Fetching unread…');
     try {
-      if (!user.google_tokens) {
-        return bot.sendMessage(chatId, '⚠️ Google not connected. Open the web app and Sign in with Google first.');
-      }
-      const emails = await GmailService.fetchInbox(user.id, 5);
-
-      if (!emails || emails.length === 0) {
-        return bot.sendMessage(chatId, '🎉 No unread emails in your inbox!');
-      }
+      const emails = await loadTaggedInbox(user.id, 5);
+      if (!emails.length) return bot.sendMessage(chatId, 'No unread emails.');
 
       for (const email of emails) {
-        const emailCard =
-          `📩 *Email ID:* \`${email.id}\`\n` +
-          `👤 *From:* ${email.from}\n` +
-          `📌 *Subject:* ${email.subject}\n` +
-          `📅 *Date:* ${email.date}\n\n` +
-          `📄 *Preview:*\n${email.snippet.substring(0, 200)}...`;
+        const card =
+          `*[${email.triage.category}]* \`${email.id}\`\n` +
+          `From: ${email.from}\n` +
+          `*${email.subject}*\n` +
+          `${(email.snippet || '').substring(0, 160)}`;
 
-        await bot.sendMessage(chatId, emailCard, {
+        const row = [
+          { text: 'AI Reply', callback_data: `ai_reply_${email.id}` },
+          { text: 'Voice Reply', callback_data: `voice_ready_${email.id}` }
+        ];
+
+        await bot.sendMessage(chatId, card, {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: [row] }
+        });
+      }
+    } catch (err) {
+      bot.sendMessage(chatId, `Error: ${err.message}`);
+    }
+  });
+
+  bot.onText(/\/help/, (msg) => {
+    bot.sendMessage(
+      msg.chat.id,
+      `*Chat naturally*\n"any important mail?"\n"what's urgent?"\n\n*Commands*\n/connect /brief /inbox /triage\n\n*Alerts*\nI push you when Urgent / Job / Meeting / College mail arrives.`,
+      { parse_mode: 'Markdown' }
+    );
+  });
+}
+
+function setupVoice() {
+  if (!bot) return;
+
+  bot.on('voice', async (msg) => {
+    const chatId = msg.chat.id;
+    const target = pendingVoice[chatId];
+    if (!target?.email) {
+      return bot.sendMessage(
+        chatId,
+        'No email selected for voice reply. Run /inbox → tap Voice Reply, then send a voice note.'
+      );
+    }
+
+    const user = await UserModel.findByTelegramChatId(chatId);
+    if (!user?.google_tokens) return bot.sendMessage(chatId, 'Google not connected.');
+
+    await bot.sendMessage(chatId, 'Transcribing voice → drafting reply…');
+    try {
+      const file = await bot.getFile(msg.voice.file_id);
+      const url = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+      const buf = await downloadUrl(url);
+      const replyText = await AIService.voiceToEmailReply(
+        buf.toString('base64'),
+        'audio/ogg',
+        target.email
+      );
+
+      const emailId = target.email.id;
+      pendingDrafts[`${chatId}_${emailId}`] = { email: target.email, replyText };
+      delete pendingVoice[chatId];
+
+      await bot.sendMessage(
+        chatId,
+        `*Voice → email draft*\n\`\`\`\n${replyText.substring(0, 3500)}\n\`\`\``,
+        {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '🤖 Generate AI Reply', callback_data: `ai_reply_${email.id}` },
-                { text: '❌ Skip', callback_data: `skip_${email.id}` }
+                { text: 'Send Reply', callback_data: `send_reply_${emailId}` },
+                { text: 'Cancel', callback_data: `skip_${emailId}` }
               ]
             ]
           }
-        });
-      }
+        }
+      );
     } catch (err) {
-      bot.sendMessage(chatId, `❌ Error fetching emails: ${err.message}`);
+      bot.sendMessage(chatId, `Voice reply failed: ${err.message}`);
     }
-  });
-
-  // /reply <email_id> <message>
-  bot.onText(/\/reply\s+([^\s]+)\s+(.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const emailId = match[1].trim();
-    const replyMessage = match[2].trim();
-
-    const user = await UserModel.findByTelegramChatId(chatId);
-    if (!user) {
-      return bot.sendMessage(chatId, '⚠️ Please connect your account first using `/connect YOUR_CODE`.', { parse_mode: 'Markdown' });
-    }
-
-    bot.sendMessage(chatId, `⏳ Sending reply to email \`${emailId}\`...`, { parse_mode: 'Markdown' });
-
-    try {
-      const result = await GmailService.sendReply(user.id, {
-        to: emailId,
-        subject: 'Re: Email',
-        threadId: emailId,
-        replyText: replyMessage
-      });
-
-      bot.sendMessage(chatId, `✅ *Email Reply Sent Successfully!*`, { parse_mode: 'Markdown' });
-    } catch (err) {
-      bot.sendMessage(chatId, `❌ Error sending email: ${err.message}`);
-    }
-  });
-
-  // /help
-  bot.onText(/\/help/, (msg) => {
-    bot.sendMessage(
-      msg.chat.id,
-      `*Gmail AI Telegram Bot Guide:*\n\n` +
-      `1️⃣ \`/connect CODE\` — Link Telegram to Web App\n` +
-      `2️⃣ \`/inbox\` — View recent unread emails\n` +
-      `3️⃣ Click *🤖 Generate AI Reply* on any email card\n` +
-      `4️⃣ Tap *✅ Send Reply* to send email`,
-      { parse_mode: 'Markdown' }
-    );
   });
 }
 
@@ -157,32 +350,44 @@ function setupCallbacks() {
     const chatId = query.message.chat.id;
     const data = query.data;
 
+    if (data.startsWith('voice_ready_')) {
+      const emailId = data.replace('voice_ready_', '');
+      bot.answerCallbackQuery(query.id, { text: 'Send a voice note now' });
+      const user = await UserModel.findByTelegramChatId(chatId);
+      if (!user?.google_tokens) return bot.sendMessage(chatId, 'Google not connected.');
+      const emails = await GmailService.fetchInbox(user.id, 15);
+      const email = emails.find((e) => e.id === emailId);
+      if (!email) return bot.sendMessage(chatId, 'Email not found — try /inbox again.');
+      pendingVoice[chatId] = { email };
+      return bot.sendMessage(
+        chatId,
+        `Ready for voice reply to:\n*${email.subject}*\n\nSend a voice message now.`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+
     if (data.startsWith('ai_reply_')) {
       const emailId = data.replace('ai_reply_', '');
-      bot.answerCallbackQuery(query.id, { text: '⚡ Generating AI reply...' });
-
+      bot.answerCallbackQuery(query.id, { text: 'Generating…' });
       const user = await UserModel.findByTelegramChatId(chatId);
-      if (!user || !user.google_tokens) {
-        return bot.sendMessage(chatId, '⚠️ Google not connected. Sign in with Google on the web app first.');
-      }
+      if (!user?.google_tokens) return bot.sendMessage(chatId, 'Google not connected.');
       const emails = await GmailService.fetchInbox(user.id, 10);
-      const email = emails.find(e => e.id === emailId) || { from: 'Sender', subject: 'Subject', snippet: 'Content' };
-
+      const email =
+        emails.find((e) => e.id === emailId) || {
+          id: emailId,
+          from: 'Sender',
+          subject: 'Subject',
+          snippet: ''
+        };
       const aiReply = await AIService.generateEmailReply(email.from, email.subject, email.snippet);
-
       pendingDrafts[`${chatId}_${emailId}`] = { email, replyText: aiReply };
-
-      const text =
-        `🤖 *AI Generated Reply Draft:*\n\n` +
-        `\`\`\`\n${aiReply}\n\`\`\``;
-
-      bot.sendMessage(chatId, text, {
+      return bot.sendMessage(chatId, `*AI draft*\n\`\`\`\n${aiReply}\n\`\`\``, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '✅ Send Reply', callback_data: `send_reply_${emailId}` },
-              { text: '❌ Cancel', callback_data: `skip_${emailId}` }
+              { text: 'Send Reply', callback_data: `send_reply_${emailId}` },
+              { text: 'Cancel', callback_data: `skip_${emailId}` }
             ]
           ]
         }
@@ -192,31 +397,27 @@ function setupCallbacks() {
     if (data.startsWith('send_reply_')) {
       const emailId = data.replace('send_reply_', '');
       const draft = pendingDrafts[`${chatId}_${emailId}`];
-
-      bot.answerCallbackQuery(query.id, { text: 'Sending email...' });
-
+      bot.answerCallbackQuery(query.id, { text: 'Sending…' });
       const user = await UserModel.findByTelegramChatId(chatId);
-      if (!user || !user.google_tokens) {
-        return bot.sendMessage(chatId, '⚠️ Google not connected.');
-      }
-
+      if (!user?.google_tokens) return bot.sendMessage(chatId, 'Google not connected.');
       try {
         await GmailService.sendReply(user.id, {
           to: draft ? draft.email.from : 'recipient',
           subject: draft ? draft.email.subject : 'Subject',
-          threadId: emailId,
+          threadId: draft?.email?.threadId || emailId,
           replyText: draft ? draft.replyText : 'Thank you.'
         });
-
-        bot.sendMessage(chatId, '✅ *Email reply sent successfully via Gmail API!*', { parse_mode: 'Markdown' });
+        delete pendingDrafts[`${chatId}_${emailId}`];
+        bot.sendMessage(chatId, 'Email reply sent via Gmail API.');
       } catch (err) {
-        bot.sendMessage(chatId, `❌ Error sending email: ${err.message}`);
+        bot.sendMessage(chatId, `Send failed: ${err.message}`);
       }
     }
 
     if (data.startsWith('skip_')) {
       bot.answerCallbackQuery(query.id, { text: 'Skipped' });
-      bot.sendMessage(chatId, '⏭️ Email skipped.');
+      delete pendingVoice[chatId];
+      bot.sendMessage(chatId, 'Skipped.');
     }
   });
 }
@@ -224,5 +425,6 @@ function setupCallbacks() {
 initTelegramBot();
 
 module.exports = {
-  getBotInstance: () => bot
+  getBotInstance: () => bot,
+  checkImportantMailForAll
 };

@@ -2,42 +2,20 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const CalendarService = require('../services/calendar.service');
+const AIService = require('../services/ai.service');
 
-// GET /api/calendar/events - Fetch upcoming Google Calendar events
+// GET /api/calendar/events
 router.get('/events', authMiddleware, async (req, res) => {
   try {
     const events = await CalendarService.listUpcomingEvents(req.user.id);
     res.json({ success: true, events });
   } catch (err) {
-    // Return sample demo events if Google account is not connected yet
-    res.json({
-      success: true,
-      demo: true,
-      events: [
-        {
-          id: 'demo_cal_1',
-          title: '🎓 College Project Review Meeting',
-          description: 'Discussion on AI MERN & Gmail Assistant architecture',
-          start: new Date(Date.now() + 3600000 * 2).toISOString(),
-          end: new Date(Date.now() + 3600000 * 3).toISOString(),
-          meetLink: 'https://meet.google.com/abc-defg-hij',
-          attendees: ['vance@university.edu']
-        },
-        {
-          id: 'demo_cal_2',
-          title: '💻 Technical Interview - AI Developer',
-          description: 'Live coding and AI agent discussion',
-          start: new Date(Date.now() + 86400000).toISOString(),
-          end: new Date(Date.now() + 86400000 + 3600000).toISOString(),
-          meetLink: 'https://meet.google.com/xyz-uvwx-rst',
-          attendees: ['careers@techcorp.com']
-        }
-      ]
-    });
+    console.error('Calendar list error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// POST /api/calendar/create - Schedule a new Google Calendar event with Google Meet
+// POST /api/calendar/create
 router.post('/create', authMiddleware, async (req, res) => {
   const { summary, description, startTime, endTime, attendees } = req.body;
   try {
@@ -46,41 +24,65 @@ router.post('/create', authMiddleware, async (req, res) => {
       description,
       startTime,
       endTime,
-      attendees: Array.isArray(attendees) ? attendees : (attendees ? [attendees] : [])
+      attendees: Array.isArray(attendees) ? attendees : attendees ? [attendees] : []
     });
-    res.json({ success: true, message: '📅 Meeting scheduled on Google Calendar with Google Meet!', event });
-  } catch (err) {
     res.json({
       success: true,
-      message: '✅ Demo Mode: Meeting scheduled on Google Calendar!',
-      event: {
-        id: 'demo_' + Date.now(),
-        title: summary || 'Project Discussion Meeting',
-        start: startTime || new Date().toISOString(),
-        meetLink: 'https://meet.google.com/demo-meet-link'
-      }
+      message: 'Meeting scheduled on Google Calendar with Google Meet!',
+      event
+    });
+  } catch (err) {
+    console.error('Calendar create error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/calendar/schedule-from-email — AI reads email → creates Meet event
+router.post('/schedule-from-email', authMiddleware, async (req, res) => {
+  const { from, subject, snippet } = req.body;
+  if (!from && !subject && !snippet) {
+    return res.status(400).json({ success: false, message: 'Email content required' });
+  }
+
+  try {
+    const draft = await AIService.extractMeetingFromEmail(from, subject, snippet);
+    const event = await CalendarService.createMeetingEvent(req.user.id, draft);
+    res.json({
+      success: true,
+      message: 'Google Meet scheduled from this email!',
+      draft,
+      event
+    });
+  } catch (err) {
+    console.error('Schedule-from-email error:', err.message);
+    const needsApi =
+      /Calendar API has not been used|disabled|enable it/i.test(err.message || '');
+    res.status(500).json({
+      success: false,
+      message: err.message,
+      hint: needsApi
+        ? 'Enable Google Calendar API in Cloud Console for this project, wait 1–2 min, retry.'
+        : undefined
     });
   }
 });
 
-// POST /api/calendar/freebusy - Check availability/busy slots
 router.post('/freebusy', authMiddleware, async (req, res) => {
   const { timeMin, timeMax } = req.body;
   try {
     const result = await CalendarService.checkFreeBusy(req.user.id, timeMin, timeMax);
     res.json({ success: true, ...result });
   } catch (err) {
-    res.json({ success: true, isFree: true, busySlots: [] });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// DELETE /api/calendar/events/:id - Cancel/Delete a calendar event
 router.delete('/events/:id', authMiddleware, async (req, res) => {
   try {
     const result = await CalendarService.deleteEvent(req.user.id, req.params.id);
     res.json({ success: true, ...result });
   } catch (err) {
-    res.json({ success: true, message: 'Event deleted (Demo Mode)' });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

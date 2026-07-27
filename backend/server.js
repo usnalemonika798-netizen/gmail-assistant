@@ -55,6 +55,7 @@ app.get('/api/health/config', (req, res) => {
   const hasGoogleSecret = Boolean(
     process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET
   );
+  const db = require('./config/db');
   const dbHost = process.env.DB_HOST || 'localhost';
   const likelySqlite =
     !process.env.DB_HOST ||
@@ -74,9 +75,13 @@ app.get('/api/health/config', (req, res) => {
       String(process.env.FRONTEND_URL || '').includes('localhost'),
     database: {
       host: dbHost,
+      mode: db.getDbMode ? db.getDbMode() : 'unknown',
+      name: process.env.DB_NAME || null,
       warning: likelySqlite
         ? 'DB_HOST is localhost/missing — Render will use ephemeral SQLite and WIPE users/tokens on every restart'
-        : null
+        : db.getDbMode && db.getDbMode() === 'sqlite'
+          ? 'Remote DB_HOST set but still on SQLite — check DB_USER/PASSWORD/NAME and Render logs'
+          : null
     },
     jwtSecretSet: Boolean(process.env.JWT_SECRET)
   });

@@ -15,37 +15,76 @@ try {
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-let activeMode = 'mysql';
+let activeMode = 'pending';
 let mysqlPool = null;
 let sqliteDb = null;
 
-// Initialize Database Connection
-function initDatabase() {
-  if (!mysql) {
-    console.warn('⚠️ MySQL driver unavailable. Falling back to SQLite...');
-    useSqliteFallback();
-    return;
-  }
+function isLocalHost(host) {
+  return !host || host === 'localhost' || host === '127.0.0.1';
+}
 
-  const connectionConfig = {
-    host: process.env.DB_HOST || 'localhost',
+function buildMysqlConfig() {
+  const host = process.env.DB_HOST || 'localhost';
+  const config = {
+    host,
     port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'college_db',
-    connectTimeout: 3000
+    // db4free / free hosts are slow
+    connectTimeout: process.env.DB_CONNECT_TIMEOUT
+      ? Number(process.env.DB_CONNECT_TIMEOUT)
+      : isLocalHost(host)
+        ? 5000
+        : 20000,
+    waitForConnections: true,
+    connectionLimit: 5
   };
 
+  // Some free MySQL hosts want SSL; Workbench "Use SSL" ≈ this
+  if (process.env.DB_SSL === '1' || process.env.DB_SSL === 'true') {
+    config.ssl = { rejectUnauthorized: false };
+  }
+
+  return config;
+}
+
+// Initialize Database Connection
+function initDatabase() {
+  const onRender = Boolean(process.env.RENDER);
+  const host = process.env.DB_HOST || 'localhost';
+  const forceSqlite = process.env.FORCE_SQLITE === '1';
+  const wantRemoteMysql = mysql && !forceSqlite && !isLocalHost(host);
+  const wantLocalMysql = mysql && !forceSqlite && !onRender && isLocalHost(host);
+
+  if (!mysql || forceSqlite || (onRender && isLocalHost(host))) {
+    if (onRender && isLocalHost(host)) {
+      console.warn(
+        'Render + DB_HOST=localhost → SQLite (data resets). Set DB_HOST=db4free.net (or other remote MySQL).'
+      );
+    }
+    useSqliteFallback();
+    return;
+  }
+
+  if (!wantRemoteMysql && !wantLocalMysql) {
+    useSqliteFallback();
+    return;
+  }
+
+  const connectionConfig = buildMysqlConfig();
+
   try {
+    activeMode = 'pending';
     const conn = mysql.createConnection(connectionConfig);
 
     conn.connect((err) => {
       if (err) {
-        console.warn(`⚠️ MySQL connection warning: ${err.message}`);
-        console.log('🔄 Switching to zero-config local SQLite database (college.db)...');
+        console.warn(`MySQL connection failed: ${err.message}`);
+        console.log('Falling back to SQLite (college.db)...');
         useSqliteFallback();
       } else {
-        console.log('✅ MySQL Database Connected Successfully!');
+        console.log(`MySQL connected → ${connectionConfig.host}/${connectionConfig.database}`);
         activeMode = 'mysql';
         conn.end();
         mysqlPool = mysql.createPool(connectionConfig);
@@ -53,7 +92,7 @@ function initDatabase() {
       }
     });
   } catch (err) {
-    console.warn(`⚠️ MySQL initialization error: ${err.message}`);
+    console.warn(`MySQL init error: ${err.message}`);
     useSqliteFallback();
   }
 }
@@ -177,9 +216,12 @@ function query(sql, params = [], callback) {
 
   if (activeMode === 'mysql' && mysqlPool) {
     return mysqlPool.query(sql, params, callback);
-  } else {
-    return runSqlite(sql, params, callback);
   }
+  if (activeMode === 'pending') {
+    // MySQL still connecting — retry shortly instead of writing to the wrong DB
+    return setTimeout(() => query(sql, params, callback), 200);
+  }
+  return runSqlite(sql, params, callback);
 }
 
 function runSqlite(sql, params, callback) {
@@ -263,4 +305,8 @@ function runSqlite(sql, params, callback) {
 
 initDatabase();
 
-module.exports = { query };
+function getDbMode() {
+  return activeMode; // mysql | sqlite | pending
+}
+
+module.exports = { query, getDbMode };
