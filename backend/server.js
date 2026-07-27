@@ -19,6 +19,7 @@ app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/gmail', require('./routes/gmail.routes'));
 app.use('/api/telegram', require('./routes/telegram.routes'));
+app.use('/api/calendar', require('./routes/calendar.routes'));
 
 // Legacy compatibility routes
 app.use('/api/agent', require('./routes/agent'));
