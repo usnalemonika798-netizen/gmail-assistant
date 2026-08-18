@@ -67,6 +67,9 @@ export default function Login() {
       <div className="auth-card">
         <h1 className="auth-title">Welcome Back 👋</h1>
         <p className="auth-subtitle">Login to your AI Mail Agent account</p>
+        <p style={{ fontSize: '13px', color: '#475569', background: '#f1f5f9', padding: '10px 12px', borderRadius: '8px', marginBottom: '14px' }}>
+          Presentation demo: <b>demo@college.com</b> / <b>demo123</b>
+        </p>
 
         {error && <div className="error-msg">⚠️ {error}</div>}
 

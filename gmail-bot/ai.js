@@ -7,7 +7,7 @@ const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 async function generateReply(from, subject, emailBody) {
   if (genAI) {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-3.6-flash' });
       const prompt = `You are a professional email assistant. Generate a polite, concise, and helpful reply to this email.
 
 From: ${from || 'Sender'}

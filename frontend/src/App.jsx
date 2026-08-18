@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import GmailInbox from './pages/GmailInbox'
+import Agent from './pages/Agent'
 import Navbar from './components/Navbar'
 
 function PrivateRoute({ children }) {
@@ -32,6 +33,12 @@ function App() {
           <PrivateRoute>
             <Navbar />
             <GmailInbox />
+          </PrivateRoute>
+        } />
+        <Route path="/agent" element={
+          <PrivateRoute>
+            <Navbar />
+            <Agent />
           </PrivateRoute>
         } />
         <Route path="/report" element={

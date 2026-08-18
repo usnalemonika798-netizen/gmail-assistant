@@ -9,7 +9,14 @@ require('./services/telegram.service');
 
 const app = express();
 
-const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+const bcrypt = require('bcryptjs');
+const UserModel = require('./models/user.model');
+
+const isLocal = !process.env.RENDER && process.env.FORCE_PROD_OAUTH !== '1';
+const frontendUrl = (isLocal ? 'http://localhost:3000' : process.env.FRONTEND_URL || 'http://localhost:3000').replace(
+  /\/$/,
+  ''
+);
 const allowedOrigins = [frontendUrl, 'http://localhost:3000', 'http://localhost:5173'].filter(
   Boolean
 );
@@ -87,11 +94,28 @@ app.get('/api/health/config', (req, res) => {
   });
 });
 
+async function seedDemoUser() {
+  try {
+    const email = 'demo@college.com';
+    const existing = await UserModel.findByEmail(email);
+    if (existing) return;
+    const hashed = await bcrypt.hash('demo123', 10);
+    await UserModel.createUser({ name: 'Demo Student', email, password: hashed });
+    console.log('Demo login ready → demo@college.com / demo123');
+  } catch (err) {
+    if (!/UNIQUE|exists|Duplicate/i.test(err.message)) {
+      console.warn('Demo user seed:', err.message);
+    }
+  }
+}
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`FRONTEND_URL=${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`Open frontend: http://localhost:3000`);
+  console.log(`Demo login: demo@college.com / demo123`);
   console.log(
-    `GOOGLE_REDIRECT_URI=${process.env.GOOGLE_REDIRECT_URI || process.env.GMAIL_REDIRECT_URI || 'localhost default'}`
+    `GOOGLE_REDIRECT_URI=${isLocal ? 'http://localhost:5000/api/auth/google/callback' : process.env.GOOGLE_REDIRECT_URI || 'localhost default'}`
   );
+  setTimeout(() => seedDemoUser().catch(() => {}), 1500);
 });

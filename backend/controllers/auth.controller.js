@@ -147,11 +147,19 @@ const AuthController = {
       );
 
       // 5. Redirect to frontend — MUST be your Vercel URL in production
-      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+      const frontendUrl = (
+        !process.env.RENDER && process.env.FORCE_PROD_OAUTH !== '1'
+          ? 'http://localhost:3000'
+          : process.env.FRONTEND_URL || 'http://localhost:3000'
+      ).replace(/\/$/, '');
       res.redirect(`${frontendUrl}/gmail?token=${token}&auth=success`);
     } catch (err) {
       console.error('Google Callback Error:', err.message);
-      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+      const frontendUrl = (
+        !process.env.RENDER && process.env.FORCE_PROD_OAUTH !== '1'
+          ? 'http://localhost:3000'
+          : process.env.FRONTEND_URL || 'http://localhost:3000'
+      ).replace(/\/$/, '');
       res.redirect(
         `${frontendUrl}/login?auth=error&message=${encodeURIComponent(err.message || 'OAuth failed')}`
       );

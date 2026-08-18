@@ -3,13 +3,19 @@ const path = require('path');
 const UserModel = require('../models/user.model');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
+function isLocalRuntime() {
+  return !process.env.RENDER && process.env.FORCE_PROD_OAUTH !== '1';
+}
+
 function requireGoogleEnv() {
   const clientId = process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET;
-  const redirectUri =
-    process.env.GOOGLE_REDIRECT_URI ||
-    process.env.GMAIL_REDIRECT_URI ||
-    'http://localhost:5000/api/auth/google/callback';
+  // Local demo: ignore Render redirect so Google login works on localhost
+  const redirectUri = isLocalRuntime()
+    ? 'http://localhost:5000/api/auth/google/callback'
+    : process.env.GOOGLE_REDIRECT_URI ||
+      process.env.GMAIL_REDIRECT_URI ||
+      'http://localhost:5000/api/auth/google/callback';
 
   if (!clientId || !clientSecret || clientId === 'dummy_client_id') {
     throw new Error(

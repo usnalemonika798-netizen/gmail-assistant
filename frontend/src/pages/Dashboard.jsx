@@ -20,6 +20,11 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE}/api/pdf/gmail-summary`, {
         headers: { Authorization: `Bearer ${token}` }
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.message || 'PDF download failed. Use email login if Google is not connected.')
+        return
+      }
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')

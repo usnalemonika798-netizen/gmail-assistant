@@ -120,14 +120,73 @@ const toolDeclarations = [
   }
 ];
 
+async function fallbackAgent(message) {
+  const m = String(message || '').toLowerCase();
+  const steps = [];
+  let table = m.includes('product') ? 'products' : 'students';
+  if (m.includes('table')) {
+    const result = await tools.list_tables();
+    steps.push({ tool: 'list_tables', args: {}, result });
+    return { reply: `Available tables: ${result.join(', ')}`, steps };
+  }
+  if (m.includes('add') || m.includes('insert') || m.includes('create')) {
+    if (table === 'products') {
+      const name = ((message.match(/named\s+([^,\n]+)/i) || [])[1] || 'New Product').trim();
+      const price = Number((message.match(/price\s+([\d.]+)/i) || [])[1] || 0);
+      const quantity = Number((message.match(/quantity\s+(\d+)/i) || [])[1] || 1);
+      const data = { name, price, quantity };
+      const result = await tools.create_record({ table, data });
+      steps.push({ tool: 'create_record', args: { table, data }, result });
+      return { reply: `Added product ${name}. ${result.message || ''}`, steps };
+    }
+    const name = ((message.match(/named\s+([^,\n]+)/i) || [])[1] || 'New Student').trim();
+    const email = ((message.match(/email\s+([^\s,]+)/i) || [])[1] || `${name.replace(/\s+/g, '').toLowerCase()}@demo.com`).trim();
+    const course = ((message.match(/course\s+([^,\n]+?)(?:,| marks|$)/i) || [])[1] || 'Computer Science').trim();
+    const marks = Number((message.match(/marks\s+(\d+)/i) || [])[1] || 80);
+    const data = { name, email, course, marks };
+    const result = await tools.create_record({ table: 'students', data });
+    steps.push({ tool: 'create_record', args: { table: 'students', data }, result });
+    return { reply: `Added student ${name}. ${result.message || ''}`, steps };
+  }
+  if (m.includes('delete') && /id\s*(\d+)/.test(m)) {
+    const id = Number(m.match(/id\s*(\d+)/)[1]);
+    const result = await tools.delete_record({ table, id });
+    steps.push({ tool: 'delete_record', args: { table, id }, result });
+    return { reply: result.message, steps };
+  }
+  if ((m.includes('show') || m.includes('list') || m.includes('all') || m.includes('view')) && !m.includes('add')) {
+    const result = await tools.read_records({ table });
+    steps.push({ tool: 'read_records', args: { table }, result });
+    const lines = (result || [])
+      .slice(0, 10)
+      .map((r) => Object.values(r).join(' | '))
+      .join('\n');
+    return { reply: `Records from ${table} (${result.length}):\n${lines || 'empty'}`, steps };
+  }
+  const result = await tools.read_records({ table });
+  steps.push({ tool: 'read_records', args: { table }, result });
+  return {
+    reply: `Showing ${table} (${result.length} records). Try: "Show all students" or "List all tables".`,
+    steps
+  };
+}
+
 // POST /api/agent/chat
 router.post('/chat', authMiddleware, async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ message: 'Message required' });
 
+  if (!process.env.GEMINI_API_KEY) {
+    try {
+      return res.json(await fallbackAgent(message));
+    } catch (err) {
+      return res.status(500).json({ message: 'Agent error: ' + err.message });
+    }
+  }
+
   try {
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
       tools: [{ functionDeclarations: toolDeclarations }]
     });
 
@@ -165,8 +224,12 @@ router.post('/chat', authMiddleware, async (req, res) => {
     res.json({ reply: finalText, steps });
 
   } catch (err) {
-    console.error('Agent error:', err.message);
-    res.status(500).json({ message: 'Agent error: ' + err.message });
+    console.warn('Gemini agent failed, using local fallback:', err.message);
+    try {
+      return res.json(await fallbackAgent(message));
+    } catch (e) {
+      res.status(500).json({ message: 'Agent error: ' + err.message });
+    }
   }
 });
 

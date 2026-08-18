@@ -24,6 +24,12 @@ export default function Navbar() {
           ✉️ Gmail AI Inbox
         </button>
         <button
+          className={`nav-btn ${location.pathname === '/agent' ? 'nav-btn-active' : 'nav-btn-ghost'}`}
+          onClick={() => navigate('/agent')}
+        >
+          🧠 SQL Agent
+        </button>
+        <button
           className={`nav-btn ${location.pathname === '/report' ? 'nav-btn-active' : 'nav-btn-ghost'}`}
           onClick={() => navigate('/report')}
         >

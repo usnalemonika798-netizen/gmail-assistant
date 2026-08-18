@@ -12,6 +12,7 @@ const pendingDrafts = {};
 const pendingVoice = {};
 // ponytail: in-memory dedupe; resets on redeploy (fine for notifications)
 const notifiedMailIds = new Set();
+const deadGoogleUsers = new Set();
 let watchTimer = null;
 
 const WATCH_MS = Number(process.env.MAIL_WATCH_INTERVAL_MS) || 90 * 1000; // ~90s
@@ -90,6 +91,7 @@ async function checkImportantMailForAll() {
   }
 
   for (const user of users) {
+    if (deadGoogleUsers.has(user.id)) continue;
     try {
       const emails = await loadTaggedInbox(user.id, 8);
       const important = emails.filter(isImportant);
@@ -124,7 +126,13 @@ async function checkImportantMailForAll() {
         keep.forEach((k) => notifiedMailIds.add(k));
       }
     } catch (err) {
-      console.warn(`Watch user ${user.id}:`, err.message);
+      const msg = err.message || '';
+      if (/invalid_grant|ENOTFOUND|invalid_client/i.test(msg)) {
+        deadGoogleUsers.add(user.id);
+        console.warn(`Watch user ${user.id}: ${msg} — skipped until Google reconnect`);
+      } else {
+        console.warn(`Watch user ${user.id}:`, msg);
+      }
     }
   }
 }

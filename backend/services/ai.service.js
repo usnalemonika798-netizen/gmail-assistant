@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 const AIService = {
   // Analyze Email Urgency & Priority Category
@@ -40,7 +41,7 @@ const AIService = {
     const instruction = toneInstructions[tone] || toneInstructions.Professional;
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const prompt = `You are an AI email assistant. ${instruction}
 
 From: ${from || 'Sender'}
@@ -91,7 +92,7 @@ Write ONLY the email reply text. Do not include subject line or headers.`;
     };
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const nowIso = new Date().toISOString();
       const prompt = `Extract a calendar meeting from this email. Reply with ONLY valid JSON (no markdown).
 Now (ISO): ${nowIso}
@@ -172,7 +173,7 @@ Rules:
     );
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const prompt = `Write a crisp morning briefing (max 120 words) for a student/professional.
 Unread emails:
 ${lines.join('\n') || 'None'}
@@ -205,7 +206,7 @@ Include 3 bullet "Suggested actions". Plain text only.`;
     const snippet = email?.snippet || '';
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const result = await model.generateContent([
         {
           inlineData: {
@@ -248,7 +249,7 @@ Return ONLY the reply body text (no "Subject:", no transcript dump).`
     });
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
       const prompt = `You are a friendly personal email assistant chatting on Telegram.
 User said: "${userMessage}"
 
