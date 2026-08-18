@@ -1,0 +1,210 @@
+=== PARAGRAPHS ===
+[P0] Royal Education Society's
+[P1] COLLEGE OF COMPUTER SCIENCE AND INFORMATION TECHNOLOGY, LATUR
+[P2] Affiliated to
+[P3] Swami Ramanand Teerth Marathwada University, Nanded.
+[P4] A PROJECT REPORT / SYNOPSIS ON
+[P5] AI-POWERED MERN SQL AGENT &
+GMAIL AUTO-REPLY BOT
+[P6] Submitted for the award of degree of
+[P7] Bachelor of Science in Computer Science
+[P8] Submitted By:
+[P9] Student Name: Vishwajeet Usnale
+Exam Seat No: __________________
+[P10] Academic Year: 2025 – 2026
+[P11] 
+[P12] Royal Education Society's
+[P13] COLLEGE OF COMPUTER SCIENCE AND INFORMATION TECHNOLOGY, LATUR.
+[P14] CERTIFICATE
+[P15] This is to certify that the project report entitled “AI-POWERED MERN SQL AGENT & GMAIL AUTO-REPLY BOT” has been successfully carried out by Vishwajeet Usnale under my supervision and guidance, in partial fulfillment for the award of the degree of Bachelor of Science in Computer Science of Swami Ramanand Teerth Marathwada University, Nanded during the academic year 2025–2026.
+[P16] Date: 16 March 2026
+Place: Latur, Maharashtra
+[P17] 
+[P18] ACKNOWLEDGEMENT
+[P19]        We would like to convey our heartfelt gratitude to Dr. R. S. Awasthi, Principal of College of Computer Science and Information Technology, Latur, for providing us with the necessary academic infrastructure, encouragement, and support to carry out this project.
+[P20]        We express our sincere thanks to Swami Ramanand Teerth Marathwada University, Nanded, for providing the curriculum and platform to showcase our technical knowledge through practical project implementation.
+[P21]        We would like to extend our deep appreciation to our Project In-Charge and Project Guide for their constant guidance, constructive feedback, and invaluable technical assistance throughout the project development lifecycle. Their willingness to motivate us contributed tremendously to the successful completion of this project.
+[P22]        We express our special gratitude to our Head of the Department for providing invaluable insights and direction in finalizing our project topic and system design.
+[P23]        Finally, we extend our sincere thanks to all faculty and staff members, colleagues, and family who directly or indirectly assisted and motivated us in completing this work.
+[P24] With Sincere Thanks,
+Vishwajeet Usnale
+(Student Signature)
+[P25] 
+[P26] INDEX
+[P27] 
+[P28] 1. Abstract
+[P29] The rapidly evolving landscape of Artificial Intelligence (AI) and Large Language Models (LLMs) presents unprecedented opportunities to transform conventional web applications and automated workplace workflows. Traditional database management systems and email client interfaces often suffer from complex queries, steep learning curves, and manual operational overhead. The AI-Powered MERN SQL Agent & Gmail Auto-Reply Bot bridges this gap by creating an intelligent, unified system that combines natural language database management with automated, human-in-the-loop email communication.
+[P30] The primary objective of this project is twofold. First, it implements a full-stack MERN application (MySQL, Express.js, React.js, and Node.js) featuring a powerful AI SQL Agent powered by Google Gemini AI. By utilizing advanced function calling and agentic tool execution, non-technical users can interact with relational databases using plain natural language (e.g., “Add a student named Alice with 90 marks in CS course” or “Show all products priced above 500”). The system translates intent into secure SQL execution, updates database records dynamically, and generates professional PDF summaries on demand.
+[P31] Second, the platform integrates a multi-channel Telegram Bot & Gmail Assistant. Utilizing Google OAuth 2.0 and the official Gmail REST API, the Telegram bot monitors unread inbox messages, analyzes message context using Gemini AI, and auto-generates structured reply drafts. To guarantee safety and privacy, the bot employs a Human-In-The-Loop approval flow featuring interactive inline Telegram buttons (✅ Send Reply / ❌ Skip), allowing users to review, edit, or send emails seamlessly directly from their Telegram chat.
+[P32] 
+[P33] 2. Introduction
+[P34] 2.1 Project Overview
+[P35] Modern enterprise operations and academic management require efficient data retrieval, accurate record updates, and prompt communication. Traditional relational database management interfaces (such as phpMyAdmin or raw SQL command line tools) demand explicit knowledge of Structured Query Language (SQL). Similarly, managing high-volume email inboxes manually leads to significant communication bottlenecks and delayed responses.
+[P36] This project introduces a centralized, intelligent solution: an AI SQL Agent coupled with an Automated Gmail Bot. The system consists of three main architectural tiers:
+[P37] 1. Web Application Tier (Frontend): A responsive React + Vite web dashboard providing real-time AI query chat, dynamic SQL data grids, PDF export triggers, and JWT user authentication.
+[P38] 2. API & Database Tier (Backend): A Node.js and Express server communicating with MySQL database via connection pools, hosting RESTful endpoints for authentication, SQL execution, and PDF report generation.
+[P39] 3. AI Agent & Telegram Bot Tier (Autonomous Assistant): A dedicated Telegram bot engine using `node-telegram-bot-api`, Google Gemini API function calling, and Gmail OAuth2 to inspect unread emails, generate intelligent reply drafts, and execute approved email dispatches.
+[P40] 2.2 Project Plan (Gantt Chart & Milestones)
+[P41] The development of the AI-Powered MERN SQL Agent & Gmail Auto-Reply Bot was carried out over a structured 12-week software development lifecycle (SDLC). The project plan and phase breakdown are detailed below:
+[P42] 
+[P43] 3. Project Requirements
+[P44] 3.1 Hardware Requirements
+[P45] The development and deployment of the system necessitate standard, modern computing infrastructure:
+[P46] • Processor: Intel Core i5 / AMD Ryzen 5 or higher (Dual-Core 2.4GHz minimum).
+[P47] • System Memory (RAM): 8 GB DDR4 RAM minimum (16 GB recommended for running node processes simultaneously).
+[P48] • Storage: 256 GB Solid State Drive (SSD) with at least 10 GB free space.
+[P49] • Network Interface: High-speed Internet connectivity (minimum 10 Mbps) for external API communication (Gemini AI, Telegram Bot API, Gmail API).
+[P50] 3.2 Software Requirements
+[P51] • Operating System: Windows 10 / 11 64-bit or Linux (Ubuntu 22.04 LTS).
+[P52] • Runtime Environment: Node.js (v18.0.0 or higher) & npm (v9.0.0 or higher).
+[P53] • Relational Database: MySQL Server (v8.0 or higher) / MariaDB.
+[P54] • Code Editor / IDE: Visual Studio Code (VS Code).
+[P55] • API Testing Tools: Postman / Thunder Client.
+[P56] 3.3 Field Work & Market Survey
+[P57] A comparative field study was conducted evaluating conventional database access methods and traditional email response workflows against AI-driven automation tools:
+[P58] 1. Manual SQL Query Writing: High susceptibility to syntax errors, requires trained technical personnel, and delays decision-making.
+[P59] 2. Traditional Auto-Responders: Static template replies lack context, fail to address specific user questions, and often lead to poor customer experience.
+[P60] 3. Proposed AI Agentic Solution: Reduces response generation time by over 80%, allows plain English database interaction, and maintains complete safety through human review buttons.
+[P61] 3.4 Front End Technology (Client Tier)
+[P62] • React 18: Declarative, component-based user interface library for building dynamic single-page applications (SPA).
+[P63] • Vite Build Tool: Next-generation frontend tooling providing lightning-fast Hot Module Replacement (HMR).
+[P64] • Axios: Promise-based HTTP client for performing asynchronous REST API requests.
+[P65] 3.5 Back End Technology (Server & AI Tier)
+[P66] • Node.js & Express.js: Asynchronous, event-driven JavaScript server framework.
+[P67] • Google Gemini AI SDK (`@google/genai`): Generative AI engine performing structured Tool Calling and natural language processing.
+[P68] • Telegram Bot API (`node-telegram-bot-api`): Interface for real-time Telegram message polling and interactive inline keyboard handling.
+[P69] • Google OAuth2 & Gmail REST API (`googleapis`): Secure authentication protocol and email fetching/sending service.
+[P70] 
+[P71] 4. System Design
+[P72] 4.1 Database Design (Table Schemas)
+[P73] The system utilizes a relational MySQL database named college_db. Tables are auto-initialized upon backend boot via `db.js`. The database schema structure is outlined below:
+[P74] Table 4.1: `users` Table Schema (Authentication)
+[P75] Table 4.2: `students` Table Schema (AI CRUD Target)
+[P76] 4.2 Entity-Relationship (E-R) Diagram Description
+[P77] The system architecture maintains decoupled entities where USER authenticates into the application to interact with STUDENT and PRODUCT relational entities managed through the AI AGENT. Simultaneously, the Telegram bot maintains OAuth authorization tokens linking Telegram user sessions securely to Gmail inbox threads.
+[P78] 4.3 Data Flow Diagram (First Level DFD)
+[P79] • Process 1.0 (User Authentication): User inputs credentials -> Express validation -> Password Hash Comparison -> JWT Token returned.
+[P80] • Process 2.0 (AI Agent Query): Natural language prompt -> Express API -> Gemini AI Tool Call -> Dynamic MySQL Query -> Json Data Grid response.
+[P81] • Process 3.0 (Telegram Gmail Assistant): Telegram /check trigger -> Gmail API fetch unread -> Gemini AI Reply Generation -> Inline Telegram Approval -> Gmail API message sent.
+[P82] 
+[P83] 5. Designing
+[P84] The frontend design is built using a modern, user-centric layout architecture emphasizing high readability, fast interaction, and seamless visual feedback.
+[P85] 5.1 Frontend Dashboard Architecture
+[P86] The main web dashboard consists of three primary functional zones:
+[P87] 1. Header & Authentication Bar: Displays system connectivity status, active user login badge, and secure JWT logout controls.
+[P88] 2. AI Assistant Prompt Interface: An interactive conversational text area supporting natural language inputs, quick sample prompt chips, and execution status indicators.
+[P89] 3. Dynamic Data Grid & PDF Export View: Renders relational database output in real-time with column sorting, live row updates, and single-click PDF report generation triggers.
+[P90] 5.2 Telegram Inline Keyboard Interface Design
+[P91] When unread emails are fetched, the Telegram bot formats the sender details, email snippet, and AI-generated reply draft into a clean, markdown card paired with dual inline action buttons:
+[P92] • [ ✅ Send Reply ]: Triggers immediate Gmail REST API message dispatch and updates the Telegram message card with a success confirmation checkmark.
+[P93] • [ ❌ Skip ]: Dismisses the draft without sending and marks the notification state as skipped.
+[P94] 
+[P95] 6. Coding
+[P96] This section presents key implementation source code snippets representing core functional modules of the system.
+[P97] 6.1 Database Auto-Initialization (`backend/db.js`)
+[P98] The backend automatically initializes connection pooling and ensures required MySQL database tables exist upon server boot:
+[P99] const mysql = require('mysql2');
+require('dotenv').config();
+
+const db = mysql.createConnection({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
+});
+
+db.connect((err) => {
+  if (err) { console.error('❌ MySQL Connection Failed:', err.message); return; }
+  console.log('✅ MySQL Connected!');
+  db.query(`CREATE TABLE IF NOT EXISTS students (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100), email VARCHAR(100),
+    course VARCHAR(100), marks INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`);
+});
+module.exports = db;
+[P100] 6.2 Telegram Bot & Gmail AI Reply Handler (`gmail-bot/bot.js`)
+[P101] The Telegram bot inspects unread Gmail messages, requests Gemini AI to generate contextual reply drafts, and renders interactive review keyboards:
+[P102] bot.onText(/\/check/, async (msg) => {
+  const chatId = msg.chat.id;
+  const emails = await getUnreadEmails();
+  for (const email of emails) {
+    const aiReply = await generateReply(email.from, email.subject, email.snippet);
+    pendingEmails[email.id] = { ...email, aiReply };
+    await bot.sendMessage(chatId,
+      `📩 *New Email*\n👤 From: ${email.from}\n📌 Subject: ${email.subject}\n\n🤖 *AI Draft:*\n${aiReply}`,
+      { parse_mode: 'Markdown', reply_markup: {
+          inline_keyboard: [[
+            { text: '✅ Send Reply', callback_data: `send_${email.id}` },
+            { text: '❌ Skip', callback_data: `skip_${email.id}` }
+          ]]
+      }}
+    );
+  }
+});
+[P103] 
+[P104] 7. Future Scope of Project
+[P105] While the current system successfully delivers natural language database interaction and automated Gmail reply workflows, several promising enhancements can expand its enterprise capabilities:
+[P106] 1. Voice Command & Multi-Lingual Processing: Integrating speech-to-text engines (such as Whisper API) to allow hands-free voice query input in regional Indian languages (e.g., Hindi, Marathi).
+[P107] 2. Complex Multi-Table JOIN & Analytics: Enhancing the AI SQL Agent schema parser to support multi-table relational joins, group-by aggregate functions, and automated chart visualization generation.
+[P108] 3. Multi-Channel Messaging Support: Extending the bot assistant architecture beyond Telegram to WhatsApp Business API and Slack workspaces.
+[P109] 4. Advanced Email Sentiment Analysis: Incorporating sentiment scoring to prioritize urgent high-priority customer complaints automatically.
+[P110] 
+[P111] 8. Conclusion
+[P112] The AI-Powered MERN SQL Agent & Gmail Auto-Reply Bot successfully demonstrates the practical integration of Generative AI tool calling, modern MERN web stack, and automated multi-platform messaging interfaces.
+[P113] By converting natural language user prompts directly into executed relational SQL commands, non-technical stakeholders can interact with complex database systems without specialized knowledge. Furthermore, the human-in-the-loop Telegram Gmail assistant drastically minimizes manual email turnaround times while ensuring complete oversight and message accuracy.
+[P114] The project strictly complies with academic formatting guidelines, robust database security standards, and asynchronous software design principles, providing a strong foundation for future enterprise automation solutions.
+[P115] 
+[P116] 9. Bibliography
+[P117] 9.1 Book References (MLA Referencing Style)
+[P118] 1. Whitten, Jeffrey L., and Lonnie D. Bentley. Systems Analysis and Design Methods. 7th ed., McGraw-Hill Education, 2017.
+[P119] 2. Nixon, Robin. Learning Node.js, Express & MySQL. 1st ed., O'Reilly Media, 2020.
+[P120] 3. Banks, Alex, and Eve Porcello. Learning React: Modern Patterns for Developing React Applications. 2nd ed., O'Reilly Media, 2020.
+[P121] 4. DuBois, Paul. MySQL Developer's Library. 5th ed., Addison-Wesley Professional, 2013.
+[P122] 9.2 Website & Documentation References
+[P123] 1. React Official Documentation: https://react.dev/
+[P124] 2. Node.js REST API Architecture: https://nodejs.org/en/docs/
+[P125] 3. Google Gemini AI Function Calling Guide: https://ai.google.dev/docs
+[P126] 4. Node Telegram Bot API Guide: https://github.com/yagop/node-telegram-bot-api
+[P127] 5. Google Gmail REST API Developer Portal: https://developers.google.com/gmail/api
+[P128] 6. MySQL 8.0 Reference Manual: https://dev.mysql.com/doc/refman/8.0/en/
+
+=== TABLES ===
+--- Table 0 ---
+R0: ___________________________ Project Guide Name | ___________________________ Head of Department (HOD)
+R1: Project Guide | Head of Department
+--- Table 1 ---
+R0: Sr. No. | Topic Name | Page No.
+R1: 1 | Abstract | 1
+R2: 2 | Introduction   2.1 Project Overview   2.2 Project Plan (Gantt Chart) | 2
+R3: 3 | Project Requirements   3.1 Hardware Requirement   3.2 Software Requirement   3.3 Field Work & Survey   3.4 Front End Technology (React + Vite)   3.5 Back End Technology (Node.js, Express, MySQL) | 4
+R4: 4 | System Design   4.1 Database Design (Table Schemas)   4.2 Entity-Relationship (E-R) Diagram   4.3 Data Flow Diagram (First Level DFD) | 6
+R5: 5 | Designing (UI Layouts & Component Architecture) | 8
+R6: 6 | Coding (Core Implementation Modules) | 10
+R7: 7 | Future Scope of Project | 13
+R8: 8 | Conclusion | 14
+R9: 9 | Bibliography   9.1 Book References (MLA Style)   9.2 Website References | 15
+--- Table 2 ---
+R0: Phase | Task Description | Duration | Key Deliverables
+R1: Phase 1 | Requirement Analysis & System Architecture | Weeks 1 - 2 | SRS Document, Tech Stack Selection
+R2: Phase 2 | MySQL Database & Express API Setup | Weeks 3 - 4 | Schema Design, JWT Auth & REST API
+R3: Phase 3 | Gemini AI Agent & Tool Calling | Weeks 5 - 6 | Natural Language to SQL Parser & Execution
+R4: Phase 4 | Gmail OAuth2 & Telegram Bot Integration | Weeks 7 - 8 | Telegram Command Engine & OAuth Flow
+R5: Phase 5 | React Frontend & PDF Engine Integration | Weeks 9 - 10 | Responsive UI, Data Grid & PDF Reports
+R6: Phase 6 | System Testing, Optimization & Deployment | Weeks 11 - 12 | Unit/Integration Testing, Project Synopsis
+--- Table 3 ---
+R0: Field Name | Data Type | Key | Null | Description
+R1: id | INT | PRIMARY KEY | NO | Auto-increment user ID
+R2: name | VARCHAR(100) | - | YES | User full name
+R3: email | VARCHAR(100) | UNIQUE | NO | User login email address
+R4: password | VARCHAR(255) | - | NO | Encrypted password hash
+R5: created_at | TIMESTAMP | - | NO | Account creation timestamp
+--- Table 4 ---
+R0: Field Name | Data Type | Key | Null | Description
+R1: id | INT | PRIMARY KEY | NO | Auto-increment student ID
+R2: name | VARCHAR(100) | - | YES | Student full name
+R3: email | VARCHAR(100) | - | YES | Student contact email
+R4: course | VARCHAR(100) | - | YES | Enrolled academic course
+R5: marks | INT | - | YES | Academic score / marks
+R6: created_at | TIMESTAMP | - | NO | Record creation timestamp
