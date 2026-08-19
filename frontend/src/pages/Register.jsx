@@ -32,10 +32,12 @@ export default function Register() {
       if (res.data.url) {
         window.location.href = res.data.url
       } else {
-        window.location.href = '/api/auth/google'
+        setError(res.data.message || 'Google is not configured on this PC.')
+        setLoading(false)
       }
     } catch (err) {
-      window.location.href = '/api/auth/google'
+      setError(err.response?.data?.message || 'Google keys missing. Paste brother backend/.env here.')
+      setLoading(false)
     }
   }
 
