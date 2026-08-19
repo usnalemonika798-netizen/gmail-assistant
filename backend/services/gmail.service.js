@@ -7,19 +7,29 @@ function isLocalRuntime() {
   return !process.env.RENDER && process.env.FORCE_PROD_OAUTH !== '1';
 }
 
+function isPlaceholder(value) {
+  if (!value) return true;
+  const v = String(value).trim().toLowerCase();
+  return (
+    v === 'dummy_client_id' ||
+    v.startsWith('your_google') ||
+    v.startsWith('your_') ||
+    v.includes('changeme')
+  );
+}
+
 function requireGoogleEnv() {
   const clientId = process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET;
-  // Local demo: ignore Render redirect so Google login works on localhost
   const redirectUri = isLocalRuntime()
     ? 'http://localhost:5000/api/auth/google/callback'
     : process.env.GOOGLE_REDIRECT_URI ||
       process.env.GMAIL_REDIRECT_URI ||
       'http://localhost:5000/api/auth/google/callback';
 
-  if (!clientId || !clientSecret || clientId === 'dummy_client_id') {
+  if (isPlaceholder(clientId) || isPlaceholder(clientSecret)) {
     throw new Error(
-      'Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET. Set them on the backend host (Render).'
+      'Google keys missing. After git pull, paste brother backend/.env into this PC backend/.env. For viva use demo@college.com / demo123.'
     );
   }
   return { clientId, clientSecret, redirectUri };

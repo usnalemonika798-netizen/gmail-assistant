@@ -83,8 +83,12 @@ const AuthController = {
 
   // GET /api/auth/google - Initiate Google OAuth 2.0 Flow (Redirect)
   getGoogleAuthUrl: (req, res) => {
-    const authUrl = GmailService.getGoogleAuthUrl();
-    res.redirect(authUrl);
+    try {
+      const authUrl = GmailService.getGoogleAuthUrl();
+      res.redirect(authUrl);
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   },
 
   // GET /api/auth/google/login-url - Get Google OAuth 2.0 Auth URL as JSON

@@ -1,0 +1,63 @@
+@echo off
+title Gmail AI - Sister Setup
+cd /d "%~dp0"
+
+echo.
+echo ========================================
+echo   College Project - Local Setup
+echo ========================================
+echo.
+
+where node >nul 2>nul
+if errorlevel 1 (
+  echo ERROR: Node.js is not installed.
+  echo Install from https://nodejs.org then run this again.
+  pause
+  exit /b 1
+)
+
+echo [1/4] Backend folder...
+cd backend
+if not exist ".env" (
+  if exist ".env.example" (
+    copy ".env.example" ".env" >nul
+    echo Created backend\.env from example.
+    echo IMPORTANT: Replace keys by copying .env from brother's USB.
+  ) else (
+    echo WARNING: No .env found. Ask brother for backend\.env file.
+  )
+) else (
+  echo backend\.env already exists - OK
+)
+
+echo [2/4] Installing backend packages...
+call npm install
+if errorlevel 1 (
+  echo Backend npm install failed.
+  pause
+  exit /b 1
+)
+
+echo [3/4] Installing frontend packages...
+cd ..\frontend
+call npm install
+if errorlevel 1 (
+  echo Frontend npm install failed.
+  pause
+  exit /b 1
+)
+
+cd ..
+echo [4/4] Done.
+echo.
+echo ========================================
+echo NEXT STEPS:
+echo 1. Paste brother's backend\.env into:
+echo    %cd%\backend\.env
+echo 2. Double-click START_BACKEND.bat
+echo 3. Double-click START_FRONTEND.bat
+echo 4. Open http://localhost:3000
+echo 5. Login: demo@college.com  /  demo123
+echo ========================================
+echo.
+pause

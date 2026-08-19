@@ -3,6 +3,16 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+// After git pull, create .env from example so sister's PC does not crash immediately
+const fs = require('fs');
+const envPath = path.join(__dirname, '.env');
+const examplePath = path.join(__dirname, '.env.example');
+if (!fs.existsSync(envPath) && fs.existsSync(examplePath)) {
+  fs.copyFileSync(examplePath, envPath);
+  console.warn('Created backend/.env from .env.example — paste brother real .env for Google/Telegram.');
+  require('dotenv').config({ path: envPath, override: true });
+}
+
 // Initialize Database & Services
 require('./config/db');
 require('./services/telegram.service');

@@ -1,0 +1,35 @@
+SISTER - HOW TO RUN AFTER git pull
+=================================
+
+WHY ERRORS HAPPEN
+- Git does NOT download backend/.env (secrets).
+- Without that file, Google login crashes.
+- You must also run npm install once.
+
+STEP A - Get secrets from brother (USB / WhatsApp)
+1. Brother copies file:  C:\Gmail Ai\backend\.env
+2. Sister pastes it to:  <this-project>\backend\.env
+   (replace if Windows asks)
+
+STEP B - First time on this PC
+1. Double-click setup.bat
+2. Wait until it finishes
+
+STEP C - Every time you present
+1. Double-click START_BACKEND.bat  (leave open)
+2. Double-click START_FRONTEND.bat (leave open)
+3. Browser: http://localhost:3000
+4. Login: demo@college.com
+   Password: demo123
+
+IF Google button still fails
+- Use demo login above (enough for viva)
+- Or check that backend\.env has real GOOGLE_CLIENT_ID values
+
+IF port 5000 already in use
+- Close all old backend windows
+- Or restart the PC once
+
+DO NOT
+- Commit .env to GitHub
+- Delete backend\.env after it works
