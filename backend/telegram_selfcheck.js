@@ -96,38 +96,52 @@ function getLocal(pathName, headers = {}) {
     }
   }
 
+  async function runAuthedChecks(jwt, results) {
+    const auth = { Authorization: `Bearer ${jwt}` };
+    const status1 = await getLocal('/api/telegram/status', auth);
+    results.push(['GET /api/telegram/status', status1.status === 200 ? 'OK' : 'FAIL', JSON.stringify(status1.body)]);
+
+    const codeRes = await postJson('http://127.0.0.1:5000/api/telegram/link-code', {}, auth);
+    if (codeRes.body && codeRes.body.code) {
+      results.push(['POST /api/telegram/link-code', 'OK', `code=${codeRes.body.code}`]);
+      try {
+        const linked = await UserModel.linkTelegramChat(codeRes.body.code, '999001');
+        results.push(['linkTelegramChat()', 'OK', `user=${linked.name} chat=999001`]);
+      } catch (e) {
+        results.push(['linkTelegramChat()', 'FAIL', e.message]);
+      }
+      const status2 = await getLocal('/api/telegram/status', auth);
+      results.push([
+        'status after link',
+        status2.body.linked ? 'OK' : 'FAIL',
+        `linked=${status2.body.linked}`
+      ]);
+    } else {
+      results.push(['POST /api/telegram/link-code', 'FAIL', JSON.stringify(codeRes.body)]);
+    }
+  }
+
   try {
-    const login = await postJson('http://127.0.0.1:5000/api/auth/login', {
-      email: 'demo@college.com',
-      password: 'demo123'
+    let login = await postJson('http://127.0.0.1:5000/api/auth/login', {
+      email: 'check@local.test',
+      password: 'check12345'
     });
+    if (!login.body.token) {
+      await postJson('http://127.0.0.1:5000/api/auth/register', {
+        name: 'Local Check',
+        email: 'check@local.test',
+        password: 'check12345'
+      });
+      login = await postJson('http://127.0.0.1:5000/api/auth/login', {
+        email: 'check@local.test',
+        password: 'check12345'
+      });
+    }
     if (!login.body.token) {
       results.push(['LOGIN', 'FAIL', login.body.message || login.status]);
     } else {
       results.push(['LOGIN', 'OK', login.body.user.name]);
-      const auth = { Authorization: `Bearer ${login.body.token}` };
-
-      const status1 = await getLocal('/api/telegram/status', auth);
-      results.push(['GET /api/telegram/status', status1.status === 200 ? 'OK' : 'FAIL', JSON.stringify(status1.body)]);
-
-      const codeRes = await postJson('http://127.0.0.1:5000/api/telegram/link-code', {}, auth);
-      if (codeRes.body && codeRes.body.code) {
-        results.push(['POST /api/telegram/link-code', 'OK', `code=${codeRes.body.code}`]);
-        try {
-          const linked = await UserModel.linkTelegramChat(codeRes.body.code, '999001');
-          results.push(['linkTelegramChat()', 'OK', `user=${linked.name} chat=999001`]);
-        } catch (e) {
-          results.push(['linkTelegramChat()', 'FAIL', e.message]);
-        }
-        const status2 = await getLocal('/api/telegram/status', auth);
-        results.push([
-          'status after link',
-          status2.body.linked ? 'OK' : 'FAIL',
-          `linked=${status2.body.linked}`
-        ]);
-      } else {
-        results.push(['POST /api/telegram/link-code', 'FAIL', JSON.stringify(codeRes.body)]);
-      }
+      await runAuthedChecks(login.body.token, results);
     }
   } catch (e) {
     results.push(['API', 'FAIL', e.message]);
