@@ -29,7 +29,7 @@ function requireGoogleEnv() {
 
   if (isPlaceholder(clientId) || isPlaceholder(clientSecret)) {
     throw new Error(
-      'Google keys missing. After git pull, copy a real backend/.env onto this PC. Demo login: demo@college.com / demo123.'
+      'Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in backend/.env.'
     );
   }
   return { clientId, clientSecret, redirectUri };

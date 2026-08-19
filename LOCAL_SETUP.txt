@@ -19,12 +19,12 @@ STEP C - Every time you run the project
 1. Double-click START_BACKEND.bat  (leave open)
 2. Double-click START_FRONTEND.bat (leave open)
 3. Browser: http://localhost:3000
-4. Login: demo@college.com
-   Password: demo123
+4. Click Register and create your own account
+   OR use Sign in with Google (after .env is configured)
 
 IF Google button still fails
-- Use demo login above for presentation
-- Or confirm backend\.env has real GOOGLE_CLIENT_ID values
+- Confirm backend\.env has real GOOGLE_CLIENT_ID values
+- Or use email Register / Login
 
 IF port 5000 already in use
 - Close all old backend windows

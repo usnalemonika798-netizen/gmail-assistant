@@ -57,7 +57,7 @@ echo    %cd%\backend\.env
 echo 2. Double-click START_BACKEND.bat
 echo 3. Double-click START_FRONTEND.bat
 echo 4. Open http://localhost:3000
-echo 5. Login: demo@college.com  /  demo123
+echo 5. Open http://localhost:3000 and Register a new account
 echo ========================================
 echo.
 pause
