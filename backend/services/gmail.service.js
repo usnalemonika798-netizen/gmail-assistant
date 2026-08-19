@@ -29,7 +29,7 @@ function requireGoogleEnv() {
 
   if (isPlaceholder(clientId) || isPlaceholder(clientSecret)) {
     throw new Error(
-      'Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in backend/.env.'
+      'Google OAuth is not configured on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the host environment.'
     );
   }
   return { clientId, clientSecret, redirectUri };

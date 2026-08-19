@@ -1,17 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+// Load local .env if present — never override host env (Render/Vercel inject real secrets)
 require('dotenv').config({ path: path.join(__dirname, '.env') });
-
-// After git pull, create .env from example if missing (keys still must be filled in)
-const fs = require('fs');
-const envPath = path.join(__dirname, '.env');
-const examplePath = path.join(__dirname, '.env.example');
-if (!fs.existsSync(envPath) && fs.existsSync(examplePath)) {
-  fs.copyFileSync(examplePath, envPath);
-  console.warn('Created backend/.env from .env.example — replace placeholder keys before Google/Telegram login.');
-  require('dotenv').config({ path: envPath, override: true });
-}
 
 // Initialize Database & Services
 require('./config/db');

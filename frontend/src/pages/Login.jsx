@@ -55,11 +55,11 @@ export default function Login() {
       if (res.data.url) {
         window.location.href = res.data.url
       } else {
-        setError(err.response?.data?.message || 'Google login is not configured. Check backend/.env or register with email.')
+        setError(res.data.message || 'Google login is not available. Please register with email.')
         setLoading(false)
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Google login unavailable. Use email login or register a new account.')
+      setError(err.response?.data?.message || 'Google login is not available. Please register with email.')
       setLoading(false)
     }
   }

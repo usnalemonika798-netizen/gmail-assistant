@@ -32,11 +32,11 @@ export default function Register() {
       if (res.data.url) {
         window.location.href = res.data.url
       } else {
-        setError(res.data.message || 'Google is not configured on this PC.')
+        setError(res.data.message || 'Google login is not available. Please register with email.')
         setLoading(false)
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Google keys missing. Copy backend/.env from the configured machine.')
+      setError(err.response?.data?.message || 'Google login is not available. Please register with email.')
       setLoading(false)
     }
   }
