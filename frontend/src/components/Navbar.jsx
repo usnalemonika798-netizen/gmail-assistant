@@ -1,14 +1,39 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import axios from 'axios'
 
 export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}')
+    } catch {
+      return {}
+    }
+  })
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    axios
+      .get('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (res.data?.user) {
+          localStorage.setItem('user', JSON.stringify(res.data.user))
+          setUser(res.data.user)
+        }
+      })
+      .catch(() => {})
+  }, [location.pathname])
 
   const logout = () => {
     localStorage.clear()
     navigate('/login')
   }
+
+  const displayName = user.name || user.email || 'Signed in'
 
   return (
     <nav className="navbar">
@@ -16,7 +41,14 @@ export default function Navbar() {
         ✉️ Gmail AI & Telegram Assistant
       </div>
       <div className="nav-links">
-        <span className="nav-user">👋 {user.name}</span>
+        <span className="nav-user" title={user.email || ''}>
+          👋 {displayName}
+          {user.email ? (
+            <span style={{ display: 'block', fontSize: '11px', opacity: 0.75, fontWeight: 500 }}>
+              {user.email}
+            </span>
+          ) : null}
+        </span>
         <button
           className={`nav-btn ${location.pathname === '/' || location.pathname === '/gmail' ? 'nav-btn-active' : 'nav-btn-ghost'}`}
           onClick={() => navigate('/')}

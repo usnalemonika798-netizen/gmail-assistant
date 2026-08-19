@@ -298,6 +298,12 @@ export default function GmailInbox() {
         <p style={{ margin: '8px 0 0', opacity: 0.92, fontSize: 14, maxWidth: 640 }}>
           Morning briefing · auto-triage labels · one-tap Meet · Telegram voice replies
         </p>
+        {status.email ? (
+          <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.95 }}>
+            Signed in as <strong>{status.name || status.email}</strong>
+            {status.name ? ` · ${status.email}` : ''}
+          </p>
+        ) : null}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
           <button onClick={handleConnectGmail} style={btn('#fff', { color: '#0f766e' })}>

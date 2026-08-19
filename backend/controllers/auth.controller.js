@@ -110,15 +110,18 @@ const AuthController = {
       // 1. Exchange code for access & refresh tokens and fetch Google profile
       const { tokens, profile } = await GmailService.exchangeCodeAndFetchProfile(code);
 
-      // 2. Find existing user or create user profile in Database
+      // 2. Find existing user or create — always sync display name from Google
       let user = await UserModel.findByEmail(profile.email);
       if (!user) {
         const dummyPassword = await bcrypt.hash(Math.random().toString(36), 10);
         user = await UserModel.createUser({
-          name: profile.name || 'Google User',
+          name: profile.name || profile.email || 'Google User',
           email: profile.email,
           password: dummyPassword
         });
+      } else if (profile.name && profile.name !== user.name) {
+        await UserModel.updateName(user.id, profile.name);
+        user = { ...user, name: profile.name };
       }
 
       // 3. Store tokens — keep existing refresh_token if Google omitted it
@@ -143,9 +146,10 @@ const AuthController = {
       }
       await UserModel.saveGoogleTokens(user.id, tokensToSave);
 
-      // 4. Issue JWT Session Token
+      // 4. Issue JWT with the Google account that just signed in
+      const displayName = profile.name || user.name || profile.email;
       const token = jwt.sign(
-        { id: user.id, name: user.name, email: user.email },
+        { id: user.id, name: displayName, email: profile.email },
         process.env.JWT_SECRET || 'mysecretkey123',
         { expiresIn: '7d' }
       );

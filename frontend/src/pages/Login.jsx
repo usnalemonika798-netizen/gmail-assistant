@@ -51,6 +51,9 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true)
+      // Clear previous session so a different Google account cannot look "stuck"
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
       const res = await axios.get('/api/auth/google/login-url')
       if (res.data.url) {
         window.location.href = res.data.url

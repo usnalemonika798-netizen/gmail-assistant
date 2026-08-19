@@ -60,7 +60,9 @@ const GmailService = {
 
     return oAuth2Client.generateAuthUrl({
       access_type: 'offline',
-      prompt: 'consent',
+      // Force Google account chooser every time (avoids auto-picking the last account)
+      prompt: 'select_account consent',
+      include_granted_scopes: true,
       scope: scopes
     });
   },

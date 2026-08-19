@@ -61,6 +61,16 @@ const UserModel = {
     });
   },
 
+  updateName: (userId, name) => {
+    return new Promise((resolve, reject) => {
+      if (!name) return resolve(false);
+      db.query('UPDATE users SET name = ? WHERE id = ?', [name, userId], (err) => {
+        if (err) return reject(err);
+        resolve(true);
+      });
+    });
+  },
+
   generateLinkCode: async (userId) => {
     purgeExpiredLinks();
     const user = await UserModel.findById(userId);

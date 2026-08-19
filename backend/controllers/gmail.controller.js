@@ -23,6 +23,8 @@ const GmailController = {
       res.json({
         success: true,
         connected,
+        email: user ? user.email : null,
+        name: user ? user.name : null,
         telegramLinked: Boolean(user && user.telegram_chat_id),
         linkCode: user ? user.telegram_link_code : null
       });
