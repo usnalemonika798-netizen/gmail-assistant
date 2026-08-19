@@ -36,7 +36,7 @@ export default function Register() {
         setLoading(false)
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Google keys missing. Paste brother backend/.env here.')
+      setError(err.response?.data?.message || 'Google keys missing. Copy backend/.env from the configured machine.')
       setLoading(false)
     }
   }

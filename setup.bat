@@ -1,5 +1,5 @@
 @echo off
-title Gmail AI - Sister Setup
+title Gmail AI - Local Setup
 cd /d "%~dp0"
 
 echo.
@@ -22,9 +22,9 @@ if not exist ".env" (
   if exist ".env.example" (
     copy ".env.example" ".env" >nul
     echo Created backend\.env from example.
-    echo IMPORTANT: Replace keys by copying .env from brother's USB.
+    echo IMPORTANT: Replace keys by copying a real .env from the configured PC.
   ) else (
-    echo WARNING: No .env found. Ask brother for backend\.env file.
+    echo WARNING: No .env found. Copy backend\.env from the configured PC.
   )
 ) else (
   echo backend\.env already exists - OK
@@ -52,7 +52,7 @@ echo [4/4] Done.
 echo.
 echo ========================================
 echo NEXT STEPS:
-echo 1. Paste brother's backend\.env into:
+echo 1. Paste configured PC backend\.env into:
 echo    %cd%\backend\.env
 echo 2. Double-click START_BACKEND.bat
 echo 3. Double-click START_FRONTEND.bat

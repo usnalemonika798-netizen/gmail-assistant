@@ -59,7 +59,7 @@ export default function Login() {
         setLoading(false)
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Google keys missing. Paste brother backend/.env here. Use demo@college.com / demo123 for viva.')
+      setError(err.response?.data?.message || 'Google keys missing. Copy backend/.env from the configured machine, or login with demo@college.com / demo123.')
       setLoading(false)
     }
   }

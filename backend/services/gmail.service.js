@@ -29,7 +29,7 @@ function requireGoogleEnv() {
 
   if (isPlaceholder(clientId) || isPlaceholder(clientSecret)) {
     throw new Error(
-      'Google keys missing. After git pull, paste brother backend/.env into this PC backend/.env. For viva use demo@college.com / demo123.'
+      'Google keys missing. After git pull, copy a real backend/.env onto this PC. Demo login: demo@college.com / demo123.'
     );
   }
   return { clientId, clientSecret, redirectUri };
