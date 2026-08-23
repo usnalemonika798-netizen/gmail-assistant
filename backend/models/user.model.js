@@ -110,6 +110,19 @@ const UserModel = {
     return code;
   },
 
+  unlinkTelegram: (userId) => {
+    return new Promise((resolve, reject) => {
+      db.query(
+        'UPDATE users SET telegram_chat_id = NULL, telegram_link_code = NULL WHERE id = ?',
+        [userId],
+        (err) => {
+          if (err) return reject(err);
+          resolve(true);
+        }
+      );
+    });
+  },
+
   linkTelegramChat: (code, chatId) => {
     return new Promise(async (resolve, reject) => {
       try {
@@ -118,62 +131,56 @@ const UserModel = {
         const chat = String(chatId);
 
         if (!normalized) {
-          return reject(new Error('Invalid or expired Link Code'));
-        }
-
-        // Already linked to this chat → treat as success (avoids double-/connect error)
-        const already = await UserModel.findByTelegramChatId(chat);
-        if (already) {
-          return resolve({ ...already, alreadyLinked: true });
+          return reject(new Error('Invalid or empty Link Code'));
         }
 
         const finishLink = (userId, name, email) => {
+          // Clear any stale assignment of this chat ID from other users first
           db.query(
-            'UPDATE users SET telegram_chat_id = ?, telegram_link_code = NULL WHERE id = ?',
+            'UPDATE users SET telegram_chat_id = NULL WHERE telegram_chat_id = ? AND id != ?',
             [chat, userId],
-            (err, result) => {
-              if (err) return reject(err);
-              if (result && result.affectedRows === 0) {
-                return reject(
-                  new Error(
-                    'User disappeared after DB restart. Sign in on the website again, generate a NEW code, then /connect within a few minutes.'
-                  )
-                );
-              }
-              resolve({ id: userId, name, email });
+            () => {
+              db.query(
+                'UPDATE users SET telegram_chat_id = ?, telegram_link_code = NULL WHERE id = ?',
+                [chat, userId],
+                (err, result) => {
+                  if (err) return reject(err);
+                  resolve({ id: userId, name, email, alreadyLinked: false });
+                }
+              );
             }
           );
         };
 
-        // 1) In-memory (same process that generated the code)
+        // 1) In-memory pending check (fast path)
         const pending = pendingTelegramLinks.get(normalized);
         if (pending) {
           pendingTelegramLinks.delete(normalized);
           return finishLink(pending.userId, pending.name, pending.email);
         }
 
-        // 2) DB
+        // 2) Database check
         db.query(
           'SELECT * FROM users WHERE UPPER(telegram_link_code) = ?',
           [normalized],
-          (err, results) => {
+          async (err, results) => {
             if (err) return reject(err);
-            if (!results || results.length === 0) {
-              // Race: first handler already linked & cleared the code
-              UserModel.findByTelegramChatId(chat)
-                .then((u) => {
-                  if (u) return resolve({ ...u, alreadyLinked: true });
-                  reject(
-                    new Error(
-                      'Invalid or expired Link Code. On the website: Sign in with Google → Link Telegram → use the NEW code immediately'
-                    )
-                  );
-                })
-                .catch(reject);
-              return;
+            if (results && results.length > 0) {
+              const user = results[0];
+              return finishLink(user.id, user.name, user.email);
             }
-            const user = results[0];
-            finishLink(user.id, user.name, user.email);
+
+            // 3) If code already used or invalid, check if this chat is already linked
+            const already = await UserModel.findByTelegramChatId(chat);
+            if (already) {
+              return resolve({ ...already, alreadyLinked: true });
+            }
+
+            reject(
+              new Error(
+                'Invalid or expired Link Code. On the website: Click "Link Telegram" to generate a fresh code, then try again.'
+              )
+            );
           }
         );
       } catch (e) {
