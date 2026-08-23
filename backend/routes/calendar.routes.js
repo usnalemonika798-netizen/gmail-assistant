@@ -55,14 +55,18 @@ router.post('/schedule-from-email', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error('Schedule-from-email error:', err.message);
-    const needsApi =
-      /Calendar API has not been used|disabled|enable it/i.test(err.message || '');
-    res.status(500).json({
+    const msg = err.message || '';
+    const needsReconnect = /invalid authentication|invalid_grant|not connected|tokens missing/i.test(msg);
+    const needsApi = /Calendar API has not been used|disabled|enable it/i.test(msg);
+    res.status(needsReconnect ? 401 : 500).json({
       success: false,
-      message: err.message,
-      hint: needsApi
-        ? 'Enable Google Calendar API in Cloud Console for this project, wait 1–2 min, retry.'
-        : undefined
+      message: msg,
+      reconnect: needsReconnect,
+      hint: needsReconnect
+        ? 'Logout → Sign in with Google again to refresh access.'
+        : needsApi
+          ? 'Enable Google Calendar API in Cloud Console for this project, wait 1–2 min, retry.'
+          : undefined
     });
   }
 });

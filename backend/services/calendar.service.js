@@ -1,46 +1,12 @@
 const { google } = require('googleapis');
-const UserModel = require('../models/user.model');
-require('dotenv').config();
-
-function getOAuth2Client() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || process.env.GMAIL_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
-  );
-}
+const GmailService = require('./gmail.service');
 
 const CalendarService = {
-  // Get initialized Google Calendar API client for user
   getValidCalendarClient: async (userId) => {
-    const user = await UserModel.findById(userId);
-    if (!user || !user.google_tokens) {
-      throw new Error('User has not linked Google / Gmail account yet');
-    }
-
-    const tokens = typeof user.google_tokens === 'string' ? JSON.parse(user.google_tokens) : user.google_tokens;
-    const oAuth2Client = getOAuth2Client();
-    oAuth2Client.setCredentials(tokens);
-
-    oAuth2Client.on('tokens', async (newTokens) => {
-      const updatedTokens = { ...tokens, ...newTokens };
-      await UserModel.saveGoogleTokens(userId, updatedTokens);
-    });
-
+    const oAuth2Client = await GmailService.getValidOAuth2Client(userId);
     return google.calendar({ version: 'v3', auth: oAuth2Client });
   },
 
-  // Get Calendar Client using tokens directly
-  getCalendarClientFromTokens: (tokens) => {
-    const client = getOAuth2Client();
-    if (tokens) {
-      const parsed = typeof tokens === 'string' ? JSON.parse(tokens) : tokens;
-      client.setCredentials(parsed);
-    }
-    return google.calendar({ version: 'v3', auth: client });
-  },
-
-  // List upcoming calendar events
   listUpcomingEvents: async (userId, maxResults = 10) => {
     const calendar = await CalendarService.getValidCalendarClient(userId);
     const now = new Date().toISOString();
@@ -65,7 +31,6 @@ const CalendarService = {
     }));
   },
 
-  // Create a new meeting event with Google Meet link
   createMeetingEvent: async (userId, { summary, description, startTime, endTime, attendees = [] }) => {
     const calendar = await CalendarService.getValidCalendarClient(userId);
 
@@ -106,7 +71,6 @@ const CalendarService = {
     };
   },
 
-  // Check Free/Busy availability
   checkFreeBusy: async (userId, timeMin, timeMax) => {
     const calendar = await CalendarService.getValidCalendarClient(userId);
 
@@ -126,7 +90,6 @@ const CalendarService = {
     };
   },
 
-  // Delete a calendar event
   deleteEvent: async (userId, eventId) => {
     const calendar = await CalendarService.getValidCalendarClient(userId);
     await calendar.events.delete({

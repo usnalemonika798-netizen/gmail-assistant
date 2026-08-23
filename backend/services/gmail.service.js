@@ -89,8 +89,8 @@ const GmailService = {
     };
   },
 
-  // Token Management & Automatic Refresh (persists new access_token to DB)
-  getValidGmailClient: async (userId) => {
+  // Shared OAuth client — same redirect URI + refresh logic for Gmail & Calendar
+  getValidOAuth2Client: async (userId) => {
     const user = await UserModel.findById(userId);
     if (!user || !user.google_tokens) {
       throw new Error('Google account not connected. Sign in with Google again.');
@@ -106,7 +106,6 @@ const GmailService = {
 
     oAuth2Client.on('tokens', async (newTokens) => {
       console.log('🔄 Access token refreshed for user:', userId);
-      // Google omits refresh_token on refresh — keep the old one
       const updatedTokens = { ...tokens, ...newTokens };
       if (!updatedTokens.refresh_token && tokens.refresh_token) {
         updatedTokens.refresh_token = tokens.refresh_token;
@@ -118,6 +117,11 @@ const GmailService = {
       }
     });
 
+    return oAuth2Client;
+  },
+
+  getValidGmailClient: async (userId) => {
+    const oAuth2Client = await GmailService.getValidOAuth2Client(userId);
     return google.gmail({ version: 'v1', auth: oAuth2Client });
   },
 

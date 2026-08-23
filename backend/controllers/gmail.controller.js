@@ -53,7 +53,7 @@ const GmailController = {
       console.error('Inbox error:', err.message);
       const msg = err.message || 'Error fetching inbox';
       const needsReconnect =
-        /invalid_grant|invalid_client|insufficient|not connected|tokens missing|Sign in with Google/i.test(
+        /invalid_grant|invalid_client|invalid authentication|insufficient|not connected|tokens missing|Sign in with Google/i.test(
           msg
         );
       res.status(needsReconnect ? 401 : 500).json({
