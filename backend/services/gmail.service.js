@@ -121,7 +121,7 @@ const GmailService = {
     return google.gmail({ version: 'v1', auth: oAuth2Client });
   },
 
-  fetchInbox: async (userId, maxResults = 5) => {
+  fetchInbox: async (userId, maxResults = 10) => {
     const gmail = await GmailService.getValidGmailClient(userId);
 
     const listRes = await gmail.users.messages.list({
@@ -131,28 +131,36 @@ const GmailService = {
     });
 
     const messages = listRes.data.messages || [];
-    const emails = [];
+    if (messages.length === 0) return [];
 
-    for (const msg of messages) {
-      const detail = await gmail.users.messages.get({ userId: 'me', id: msg.id });
-      const headers = detail.data.payload.headers || [];
+    // Fetch all messages in parallel (format=metadata only pulls headers, not the full body — much faster)
+    const details = await Promise.all(
+      messages.map((msg) =>
+        gmail.users.messages.get({
+          userId: 'me',
+          id: msg.id,
+          format: 'metadata',
+          metadataHeaders: ['From', 'Subject', 'Date']
+        })
+      )
+    );
 
+    return details.map((detail) => {
+      const headers = detail.data.payload?.headers || [];
       const from = headers.find((h) => h.name === 'From')?.value || 'Unknown Sender';
       const subject = headers.find((h) => h.name === 'Subject')?.value || '(No Subject)';
       const date = headers.find((h) => h.name === 'Date')?.value || new Date().toISOString();
       const snippet = detail.data.snippet || '';
 
-      emails.push({
-        id: msg.id,
+      return {
+        id: detail.data.id,
         threadId: detail.data.threadId,
         from,
         subject,
         snippet,
         date
-      });
-    }
-
-    return emails;
+      };
+    });
   },
 
   sendReply: async (userId, { to, subject, threadId, replyText }) => {
