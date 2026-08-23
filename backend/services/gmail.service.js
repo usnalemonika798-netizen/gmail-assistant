@@ -121,12 +121,13 @@ const GmailService = {
     return google.gmail({ version: 'v1', auth: oAuth2Client });
   },
 
-  fetchInbox: async (userId, maxResults = 10) => {
+  fetchInbox: async (userId, maxResults = 25) => {
     const gmail = await GmailService.getValidGmailClient(userId);
 
+    // Match Gmail's Primary tab (not Promotions/Social/Updates)
     const listRes = await gmail.users.messages.list({
       userId: 'me',
-      q: 'is:unread',
+      q: 'in:inbox category:primary',
       maxResults
     });
 

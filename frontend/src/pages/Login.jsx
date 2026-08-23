@@ -6,7 +6,21 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [backendOnline, setBackendOnline] = useState(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    axios.get('/api/health/config', { timeout: 5000 })
+      .then(() => setBackendOnline(true))
+      .catch(() => setBackendOnline(false))
+  }, [])
+
+  const apiErrorMessage = (err, fallback) => {
+    if (!err.response) {
+      return 'Backend is not running. Start backend first: cd backend → npm run dev (port 5000), then refresh this page.'
+    }
+    return err.response?.data?.message || fallback
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -42,7 +56,7 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(res.data.user))
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed')
+      setError(apiErrorMessage(err, 'Login failed'))
     } finally {
       setLoading(false)
     }
@@ -62,7 +76,7 @@ export default function Login() {
         setLoading(false)
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Google login is not available. Please register with email.')
+      setError(apiErrorMessage(err, 'Google login is not available. Please register with email.'))
       setLoading(false)
     }
   }
@@ -72,6 +86,12 @@ export default function Login() {
       <div className="auth-card">
         <h1 className="auth-title">Welcome Back 👋</h1>
         <p className="auth-subtitle">Login to your AI Mail Agent account</p>
+
+        {backendOnline === false && (
+          <div className="error-msg">
+            Backend offline — run <code>npm run dev</code> in the <code>backend</code> folder first, then refresh.
+          </div>
+        )}
 
         {error && <div className="error-msg">⚠️ {error}</div>}
 

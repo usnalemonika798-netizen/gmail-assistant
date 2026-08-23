@@ -455,14 +455,14 @@ export default function GmailInbox() {
       <div style={{ display: 'grid', gridTemplateColumns: selectedEmail ? '1fr 1fr' : '1fr', gap: 22 }}>
         <div style={{ background: '#fff', borderRadius: 12, padding: 22, boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 18, color: '#0f172a' }}>Inbox ({emails.length})</h2>
+            <h2 style={{ margin: 0, fontSize: 18, color: '#0f172a' }}>Primary inbox ({emails.length})</h2>
             <button onClick={fetchEmails} disabled={loading} style={btn('#f1f5f9', { color: '#475569' })}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
 
           {emails.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#64748b', padding: '36px 0' }}>No unread emails</p>
+            <p style={{ textAlign: 'center', color: '#64748b', padding: '36px 0' }}>No emails in Primary</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {emails.map((email) => {

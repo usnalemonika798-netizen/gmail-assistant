@@ -37,7 +37,7 @@ const GmailController = {
     try {
       if (!(await requireGoogleUser(req, res))) return;
 
-      const rawEmails = await GmailService.fetchInbox(req.user.id, 10);
+      const rawEmails = await GmailService.fetchInbox(req.user.id, 25);
       const emails = rawEmails.map((email) => {
         const triage = AIService.classifyEmail(email.subject, email.snippet, email.from);
         return {
@@ -68,7 +68,7 @@ const GmailController = {
     try {
       if (!(await requireGoogleUser(req, res))) return;
 
-      const emailsRaw = await GmailService.fetchInbox(req.user.id, 10);
+      const emailsRaw = await GmailService.fetchInbox(req.user.id, 25);
       const emails = emailsRaw.map((email) => ({
         ...email,
         triage: AIService.classifyEmail(email.subject, email.snippet, email.from),
@@ -120,7 +120,7 @@ const GmailController = {
   autoTriage: async (req, res) => {
     try {
       if (!(await requireGoogleUser(req, res))) return;
-      const results = await GmailService.autoTriageInbox(req.user.id, 10);
+      const results = await GmailService.autoTriageInbox(req.user.id, 25);
       const counts = {};
       for (const r of results) {
         const c = r.triage.category;
