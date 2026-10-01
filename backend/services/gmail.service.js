@@ -168,20 +168,42 @@ const GmailService = {
     });
   },
 
+  getMessage: async (userId, messageId) => {
+    const gmail = await GmailService.getValidGmailClient(userId);
+    const detail = await gmail.users.messages.get({
+      userId: 'me',
+      id: messageId,
+      format: 'metadata',
+      metadataHeaders: ['From', 'Subject', 'Date']
+    });
+    const headers = detail.data.payload?.headers || [];
+    return {
+      id: detail.data.id,
+      threadId: detail.data.threadId,
+      from: headers.find((h) => h.name === 'From')?.value || 'Unknown Sender',
+      subject: headers.find((h) => h.name === 'Subject')?.value || '(No Subject)',
+      snippet: detail.data.snippet || '',
+      date: headers.find((h) => h.name === 'Date')?.value || new Date().toISOString()
+    };
+  },
+
   sendReply: async (userId, { to, subject, threadId, replyText }) => {
     const gmail = await GmailService.getValidGmailClient(userId);
-
-    const emailMatch = String(to || '').match(/<([^>]+)>/);
-    const recipient = (emailMatch ? emailMatch[1] : String(to || '')).trim();
+    const rawTo = String(to || '').replace(/[\r\n]/g, ' ');
+    const angled = rawTo.match(/<([^>]+)>/);
+    const recipient = (angled ? angled[1] : rawTo).trim().replace(/^"+|"+$/g, '');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      throw new Error('That mail has no valid reply address.');
+    }
+    const cleanSubject = String(subject || 'your email').replace(/[\r\n]/g, ' ').slice(0, 180);
     const emailLines = [
       `To: ${recipient}`,
-      `Subject: Re: ${subject || ''}`,
-      threadId ? `In-Reply-To: ${threadId}` : '',
-      threadId ? `References: ${threadId}` : '',
+      `Subject: Re: ${cleanSubject}`,
+      'MIME-Version: 1.0',
       'Content-Type: text/plain; charset=utf-8',
       '',
       replyText
-    ].filter(Boolean);
+    ];
 
     const raw = Buffer.from(emailLines.join('\n'))
       .toString('base64')

@@ -42,6 +42,14 @@ function initTelegramBot() {
     return;
   }
 
+  // Only one process may poll a bot token. Render sets RENDER=1, so production polls.
+  // This PC stays quiet unless TELEGRAM_POLLING=1, otherwise link codes never match.
+  const pollingOn = process.env.TELEGRAM_POLLING === '1' || (process.env.TELEGRAM_POLLING !== '0' && process.env.RENDER);
+  if (!pollingOn) {
+    console.log('Telegram polling is off here so the production bot can own this token. Set TELEGRAM_POLLING=1 to run it locally.');
+    return;
+  }
+
   try {
     bot = new TelegramBot(token, { polling: true });
     let logged409 = false;
@@ -193,8 +201,8 @@ function detectIntent(text) {
   if (/\b(morning briefing|catch me up|what'?s going on|whats going on|brief my inbox|full briefing)\b/.test(t)) {
     return 'brief';
   }
-  if (/\b(important|urgent|priority|\bimp\b|need(s)? (my )?attention|anything i should)\b/.test(t)) return 'important';
-  if (/\b(inbox|unread|mailbox|check (my )?(mail|email|gmail)|show (me )?(my )?(mail|email|emails|inbox)|any (new )?mail|new (mail|email)|what'?s in my)\b/.test(t)) {
+  if (/\b(imporat\w*|importan\w*|urgent|priority|\bimp\b|need(s)? (my )?attention|anything i should)\b/.test(t)) return 'important';
+  if (/\b(inbox|unread|mailbox|any mail|check (my )?(mail|email|gmail)|show\b.*\b(mail|email|emails|inbox)|any (new )?mail|new (mail|email)|what'?s in my)\b/.test(t)) {
     return 'inbox';
   }
   return 'chat';
@@ -313,6 +321,15 @@ async function requireLinked(chatId) {
 
 function firstName(user) {
   return (user?.name || '').split(' ')[0] || 'there';
+}
+
+async function emailById(userId, emailId) {
+  try {
+    return await GmailService.getMessage(userId, emailId);
+  } catch (err) {
+    const emails = await GmailService.fetchInbox(userId, 15);
+    return emails.find((e) => e.id === emailId) || null;
+  }
 }
 
 async function sendInbox(chatId, user) {
@@ -471,6 +488,16 @@ function setupHumanChat() {
   bot.on('message', async (msg) => {
     if (!msg.text || msg.voice) return;
     const text = msg.text.trim();
+    const connect = text.match(/^(?:connect|link)\s+([A-Za-z0-9]{4,12})$/i);
+    if (connect) {
+      try {
+        const user = await UserModel.linkTelegramChat(connect[1], msg.chat.id);
+        if (user.alreadyLinked) return say(msg.chat.id, `You're already linked, ${user.name}. Say "show my inbox".`);
+        return say(msg.chat.id, `You're in, ${user.name}. Say "show my inbox" or "any important mail?".`);
+      } catch (err) {
+        return say(msg.chat.id, err.message);
+      }
+    }
     if (text.startsWith('/')) return;
     await handleHuman(msg.chat.id, text);
   });
@@ -600,8 +627,7 @@ function setupCallbacks() {
       bot.answerCallbackQuery(query.id, { text: 'Send a voice note' });
       const user = await UserModel.findByTelegramChatId(chatId);
       if (!user?.google_tokens) return bot.sendMessage(chatId, 'Google not connected.');
-      const emails = await GmailService.fetchInbox(user.id, 15);
-      const email = emails.find((e) => e.id === emailId);
+      const email = await emailById(user.id, emailId);
       if (!email) return say(chatId, 'That email is gone from the list. Say "show my inbox" and pick it again.');
       pendingVoice[chatId] = { email };
       return say(chatId, `Go ahead — send a voice note for:\n${email.subject}`);
@@ -612,14 +638,8 @@ function setupCallbacks() {
       bot.answerCallbackQuery(query.id, { text: 'Writing a draft…' });
       const user = await UserModel.findByTelegramChatId(chatId);
       if (!user?.google_tokens) return bot.sendMessage(chatId, 'Google not connected.');
-      const emails = await GmailService.fetchInbox(user.id, 10);
-      const email =
-        emails.find((e) => e.id === emailId) || {
-          id: emailId,
-          from: 'Sender',
-          subject: 'Subject',
-          snippet: ''
-        };
+      const email = await emailById(user.id, emailId);
+      if (!email) return say(chatId, 'I could not open that mail anymore. Say "show my inbox" and tap AI Reply on it.');
       const aiReply = await AIService.generateEmailReply(email.from, email.subject, email.snippet);
       pendingDrafts[`${chatId}_${emailId}`] = { email, replyText: aiReply };
       return say(chatId, `Here's a draft. Send it, or tell me to change the tone.\n\n${aiReply}`, {
@@ -649,7 +669,7 @@ function setupCallbacks() {
         delete pendingDrafts[`${chatId}_${emailId}`];
         say(chatId, 'Sent. It should be in the thread now.');
       } catch (err) {
-        say(chatId, "Couldn't send that. Sign in with Google again on the website if this keeps happening.");
+        say(chatId, `Couldn't send that. ${err.message}`);
       }
     }
 
@@ -659,8 +679,7 @@ function setupCallbacks() {
       bot.answerCallbackQuery(query.id, { text: 'Sending…' });
       const user = await UserModel.findByTelegramChatId(chatId);
       if (!user?.google_tokens) return say(chatId, 'Sign in with Google on the website first.');
-      const emails = await GmailService.fetchInbox(user.id, 15);
-      const email = emails.find((e) => e.id === emailId);
+      const email = await emailById(user.id, emailId);
       if (!email) return say(chatId, 'That email is gone. Say "show my inbox" and pick it again.');
       try {
         await GmailService.sendReply(user.id, {
@@ -702,7 +721,9 @@ if (require.main === module && process.argv.includes('--check-intent')) {
     ['who emailed me about the project deadline', 'chat'],
     ['brif me that mail', 'explain'],
     ['i want say thank you for this mail', 'reply'],
-    ['show me imp mail', 'important']
+    ['show me imp mail', 'important'],
+    ['Show me last Imporatant mail', 'important'],
+    ['show me any mail', 'inbox']
   ];
   let failed = 0;
   for (const [text, want] of cases) {
