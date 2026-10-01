@@ -1,3 +1,10 @@
+// The live bot is backend/services/telegram.service.js (started with the server).
+// Polling here too causes Telegram 409 and drops messages. Opt in only if needed.
+if (process.env.RUN_LEGACY_BOT !== '1') {
+  console.log('gmail-bot is off. Chat is handled by the backend bot. Set RUN_LEGACY_BOT=1 to run this copy.');
+  process.exit(0);
+}
+
 const TelegramBot = require('node-telegram-bot-api').TelegramBot || require('node-telegram-bot-api');
 const { loadToken, getAuthUrl, saveToken, getUnreadEmails, markAsRead, sendReply } = require('./gmail');
 const { generateReply } = require('./ai');

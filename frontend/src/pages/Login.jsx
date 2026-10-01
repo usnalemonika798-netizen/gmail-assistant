@@ -9,15 +9,19 @@ export default function Login() {
   const [backendOnline, setBackendOnline] = useState(null)
   const navigate = useNavigate()
 
+  const onLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+
   useEffect(() => {
-    axios.get('/api/health/config', { timeout: 5000 })
+    axios.get('/api/health/config', { timeout: onLocalhost ? 5000 : 25000 })
       .then(() => setBackendOnline(true))
       .catch(() => setBackendOnline(false))
-  }, [])
+  }, [onLocalhost])
 
   const apiErrorMessage = (err, fallback) => {
     if (!err.response) {
-      return 'Backend is not running. Start backend first: cd backend → npm run dev (port 5000), then refresh this page.'
+      return onLocalhost
+        ? 'Backend is not running. Start backend first: cd backend → npm run dev (port 5000), then refresh this page.'
+        : 'Server is waking up. Wait about 30 seconds, then try Sign in again.'
     }
     return err.response?.data?.message || fallback
   }
@@ -89,7 +93,9 @@ export default function Login() {
 
         {backendOnline === false && (
           <div className="error-msg">
-            Backend offline — run <code>npm run dev</code> in the <code>backend</code> folder first, then refresh.
+            {onLocalhost
+              ? 'Backend offline — run npm run dev in the backend folder first, then refresh.'
+              : 'Server is waking up. Wait about 30 seconds, then refresh and sign in.'}
           </div>
         )}
 

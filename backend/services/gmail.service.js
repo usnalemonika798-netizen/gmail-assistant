@@ -171,8 +171,10 @@ const GmailService = {
   sendReply: async (userId, { to, subject, threadId, replyText }) => {
     const gmail = await GmailService.getValidGmailClient(userId);
 
+    const emailMatch = String(to || '').match(/<([^>]+)>/);
+    const recipient = (emailMatch ? emailMatch[1] : String(to || '')).trim();
     const emailLines = [
-      `To: ${to}`,
+      `To: ${recipient}`,
       `Subject: Re: ${subject || ''}`,
       threadId ? `In-Reply-To: ${threadId}` : '',
       threadId ? `References: ${threadId}` : '',

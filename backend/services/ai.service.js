@@ -237,7 +237,7 @@ Return ONLY the reply body text (no "Subject:", no transcript dump).`
   },
 
   // Human-style chat about inbox (Telegram free-text)
-  chatAboutMail: async (userMessage, emails) => {
+  chatAboutMail: async (userMessage, emails, userName) => {
     const catalog = (emails || []).slice(0, 12).map((e, i) => {
       const triage = e.triage || AIService.classifyEmail(e.subject, e.snippet, e.from);
       return `${i + 1}. [${triage.category}] From: ${e.from} | Subject: ${e.subject} | Preview: ${(e.snippet || '').slice(0, 120)}`;
@@ -250,19 +250,22 @@ Return ONLY the reply body text (no "Subject:", no transcript dump).`
 
     try {
       const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-      const prompt = `You are a friendly personal email assistant chatting on Telegram.
-User said: "${userMessage}"
+      const prompt = `You are ${userName ? userName + "'s" : "a"} friendly personal email assistant on Telegram.
+Talk like a real person texting a friend: short, warm, plain sentences. No slash commands, no bullet manuals, no "as an AI".
+
+They said: "${userMessage}"
 
 Unread emails (${emails.length}):
 ${catalog.join('\n') || 'None'}
 
 Important/actionable count: ${important.length}
 
-Reply like a helpful human friend (short, natural, WhatsApp/Telegram style).
-- If they ask about important mail, clearly say yes/no and list the important ones briefly.
-- If inbox empty, say so casually.
-- Suggest /inbox, /brief, or Voice Reply when useful.
-- No markdown tables. Max ~120 words.`;
+Rules:
+- Answer the actual question first. Stay on the email they named.
+- If they ask about one email, summarize that email only.
+- If they want to thank someone or reply, say you can draft it and ask them to confirm. Do not claim you already sent it.
+- Do not end with a menu of commands.
+- Max 80 words. Plain text only.`;
 
       const result = await model.generateContent(prompt);
       const text = result.response.text();
@@ -271,20 +274,31 @@ Reply like a helpful human friend (short, natural, WhatsApp/Telegram style).
       console.warn('chatAboutMail fallback:', err.message);
     }
 
+    const who = userName ? userName.split(' ')[0] : '';
+    const asked = String(userMessage || '').toLowerCase();
+    const words = asked.split(/\W+/).filter((w) => w.length > 4);
+    const matched = (emails || []).find((e) => {
+      const hay = `${e.subject} ${e.snippet} ${e.from}`.toLowerCase();
+      return words.some((w) => hay.includes(w));
+    });
+    if (matched) {
+      const bit = String(matched.snippet || '').replace(/&#39;/g, "'").slice(0, 280);
+      return `${matched.subject} is from ${matched.from}. ${bit}`;
+    }
     if (!emails.length) {
-      return "Hey — your unread looks empty right now. Nothing important waiting. I'll ping you here if something urgent lands.";
+      return `Hey${who ? ' ' + who : ''} — nothing unread right now. I'll message you if something important lands.`;
     }
     if (!important.length) {
-      return `You've got ${emails.length} unread, but nothing screaming urgent/job/meeting. Want me to run through them? Say "show inbox" or use /inbox.`;
+      return `You've got ${emails.length} unread. None of them look urgent. Tell me the subject if you want me to open one.`;
     }
     const lines = important
       .slice(0, 5)
       .map((e) => {
         const c = (e.triage || AIService.classifyEmail(e.subject, e.snippet, e.from)).category;
-        return `• [${c}] ${e.subject} — ${e.from}`;
+        return `- ${e.subject} (${c}, from ${e.from})`;
       })
       .join('\n');
-    return `Yeah — ${important.length} look important:\n${lines}\n\nTap /inbox to reply, or ask me anything else.`;
+    return `Yeah — ${important.length} look worth your time:\n${lines}\n\nSay "show my inbox" if you want the full list.`;
   }
 };
 
